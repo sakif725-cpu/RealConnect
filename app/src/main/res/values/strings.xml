@@ -1,0 +1,52 @@
+<resources>
+    <string name="app_name">RealConnect</string>
+    <string name="title_contacts">Contacts</string>
+    <string name="title_call">Call</string>
+    <string name="title_profile">Profile</string>
+    <string name="search_hint">Search contacts...</string>
+    <string name="add_contact">Add Contact</string>
+    <string name="enter_number">Enter Number</string>
+    <string name="backspace">Backspace</string>
+    <string name="make_call">Call</string>
+    <string name="logout">Log Out</string>
+    <string name="profile_name">John Doe</string>
+    <string name="profile_phone">+1 234 567 890</string>
+    <string name="profile_email">johndoe@example.com</string>
+    <string name="option_account">Account</string>
+    <string name="option_notifications">Notifications</string>
+    <string name="option_privacy">Privacy</string>
+
+    <string name="dialog_add_contact_title">New Contact</string>
+    <string name="dialog_edit_contact_title">Edit Contact</string>
+    <string name="dialog_delete_contact_title">Delete Contact</string>
+    <string name="dialog_delete_contact_message">Are you sure you want to delete %1$s?</string>
+
+    <string name="hint_full_name">Full Name</string>
+    <string name="hint_phone_number">Phone Number</string>
+    <string name="hint_email">Email</string>
+
+    <string name="action_add">Add</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+
+    <string name="error_empty_fields">Please fill in all fields</string>
+    <string name="msg_contact_added">Contact added: %1$s</string>
+    <string name="msg_contact_updated">Contact updated</string>
+    <string name="msg_contact_deleted">Contact deleted</string>
+    <string name="msg_profile_photo_updated">Profile photo updated</string>
+    <string name="msg_profile_updated">Profile updated</string>
+
+    <string name="label_mute">Mute</string>
+    <string name="label_speaker">Speaker</string>
+    <string name="label_keypad">Keypad</string>
+    <string name="label_record">Record</string>
+    <string name="label_hold">Hold</string>
+    <string name="label_add_call">Add Call</string>
+    <string name="label_ai_mode">AI Mode</string>
+    <string name="desc_caller_avatar">Caller Avatar</string>
+    <string name="desc_end_call">End Call</string>
+    <string name="timer_initial">00:00</string>
+    <string name="dialog_edit_profile_title">Edit Profile</string>
+</resources>

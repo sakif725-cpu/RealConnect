@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="DialerButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:layout_width">@dimen/dialer_button_size</item>
+        <item name="android:layout_height">@dimen/dialer_button_size</item>
+        <item name="android:textSize">@dimen/dialer_button_text_size</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.Circle</item>
+        <item name="rippleColor">@color/divider</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Circle" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+</resources>

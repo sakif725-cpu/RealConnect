@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/text_contact_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:textColor="@color/colorPrimary"
+        android:textSize="18sp"
+        android:fontFamily="sans-serif-medium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/text_phone_number"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:hint="@string/enter_number"
+        android:singleLine="true"
+        android:textColor="@color/textColorPrimary"
+        android:textSize="36sp"
+        android:fontFamily="sans-serif-light"
+        app:layout_constraintEnd_toStartOf="@+id/btn_delete"
+        app:layout_constraintStart_toEndOf="@+id/btn_add_to_contacts"
+        app:layout_constraintTop_toBottomOf="@id/text_contact_name" />
+
+    <ImageButton
+        android:id="@+id/btn_add_to_contacts"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/add_contact"
+        android:src="@drawable/ic_add"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@+id/text_phone_number"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/text_phone_number"
+        app:tint="@color/colorPrimary" />
+
+    <ImageButton
+        android:id="@+id/btn_delete"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/backspace"
+        android:src="@drawable/ic_backspace"
+        app:layout_constraintBottom_toBottomOf="@+id/text_phone_number"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/text_phone_number"
+        app:tint="@color/textColorSecondary" />
+
+    <GridLayout
+        android:id="@+id/keypad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:alignmentMode="alignMargins"
+        android:columnCount="3"
+        android:useDefaultMargins="true"
+        app:layout_constraintBottom_toTopOf="@+id/btn_make_call"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/text_phone_number">
+
+        <Button android:id="@+id/btn_1" style="@style/DialerButton" android:text="1" />
+        <Button android:id="@+id/btn_2" style="@style/DialerButton" android:text="2" />
+        <Button android:id="@+id/btn_3" style="@style/DialerButton" android:text="3" />
+
+        <Button android:id="@+id/btn_4" style="@style/DialerButton" android:text="4" />
+        <Button android:id="@+id/btn_5" style="@style/DialerButton" android:text="5" />
+        <Button android:id="@+id/btn_6" style="@style/DialerButton" android:text="6" />
+
+        <Button android:id="@+id/btn_7" style="@style/DialerButton" android:text="7" />
+        <Button android:id="@+id/btn_8" style="@style/DialerButton" android:text="8" />
+        <Button android:id="@+id/btn_9" style="@style/DialerButton" android:text="9" />
+
+        <Button android:id="@+id/btn_star" style="@style/DialerButton" android:text="*" />
+        <Button android:id="@+id/btn_0" style="@style/DialerButton" android:text="0" />
+        <Button android:id="@+id/btn_hash" style="@style/DialerButton" android:text="#" />
+    </GridLayout>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_make_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:contentDescription="@string/make_call"
+        android:src="@drawable/ic_call"
+        app:backgroundTint="@color/colorPrimary"
+        app:fabSize="normal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:tint="@color/white" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

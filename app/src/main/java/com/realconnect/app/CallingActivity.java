@@ -1,0 +1,399 @@
+package com.realconnect.app;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.media.AudioManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import org.webrtc.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+public class CallingActivity extends AppCompatActivity {
+
+    private static final String TAG = "WebRTCCall";
+    private static final int PERMISSION_REQUEST_CODE = 100;
+    
+    private TextView textCallTimer;
+    private TextView textAiStatus;
+    private TextView textSpamWarning;
+    private View controlsContainer;
+    private FloatingActionButton btnAcceptCall;
+    private Ringtone ringtone;
+    
+    private int seconds = 0;
+    private boolean running = false;
+    private boolean isConnected = false;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final List<IceCandidate> pendingIceCandidates = new ArrayList<>();
+
+    // WebRTC components
+    private PeerConnectionFactory factory;
+    private PeerConnection peerConnection;
+    private AudioSource audioSource;
+    private AudioTrack localAudioTrack;
+    private AudioManager audioManager;
+    private SignalingClient signalingClient;
+    
+    private String selfPhone;
+    private String targetPhone;
+    private boolean isIncoming;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_calling);
+
+        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+        selfPhone = prefs.getString("phone", "");
+        targetPhone = getIntent().getStringExtra("CONTACT_PHONE");
+        isIncoming = getIntent().getBooleanExtra("IS_INCOMING", false);
+
+        if (selfPhone.isEmpty()) {
+            Toast.makeText(this, "Profile number missing!", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        textCallTimer = findViewById(R.id.text_call_timer);
+        textAiStatus = findViewById(R.id.text_ai_status);
+        textSpamWarning = findViewById(R.id.text_spam_warning);
+        TextView textCallerName = findViewById(R.id.text_caller_name);
+        FloatingActionButton btnEndCall = findViewById(R.id.btn_end_call);
+        btnAcceptCall = findViewById(R.id.btn_accept_call);
+        controlsContainer = findViewById(R.id.controls_container);
+
+        String name = getIntent().getStringExtra("CONTACT_NAME");
+        textCallerName.setText(name != null && !name.isEmpty() ? name : (targetPhone != null ? targetPhone : "Unknown"));
+
+        btnEndCall.setOnClickListener(v -> endCall());
+        btnAcceptCall.setOnClickListener(v -> acceptCall());
+
+        // Default UI State: Controls visible for caller, hidden for receiver
+        if (isIncoming) {
+            btnAcceptCall.setVisibility(View.VISIBLE);
+            controlsContainer.setVisibility(View.GONE);
+            textCallTimer.setText("Incoming...");
+            startRinging();
+            
+            if (getIntent().getBooleanExtra("IS_SPAM", false)) {
+                showSpamWarning();
+            }
+        } else {
+            btnAcceptCall.setVisibility(View.GONE);
+            controlsContainer.setVisibility(View.VISIBLE);
+            textCallTimer.setText("Calling...");
+            textAiStatus.setText("AI GUARD: ACTIVE");
+            
+            if (checkPermissions()) {
+                startCallFlow();
+            } else {
+                requestPermissions();
+            }
+        }
+
+        setupActions();
+        setupSignaling();
+    }
+
+    private void showSpamWarning() {
+        textSpamWarning.setVisibility(View.VISIBLE);
+        textAiStatus.setText("AI: SPAM DETECTED");
+        textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+    }
+
+    private void onCallConnected() {
+        if (isConnected) return;
+        isConnected = true;
+        runOnUiThread(() -> {
+            stopRinging();
+            textCallTimer.setText("00:00");
+            controlsContainer.setVisibility(View.VISIBLE);
+            running = true;
+            runTimer();
+            performVoiceAiAnalysis();
+        });
+    }
+
+    private void performVoiceAiAnalysis() {
+        textAiStatus.setText("AI: ANALYZING VOICE...");
+        textAiStatus.setTextColor(Color.WHITE);
+        
+        AiService.detectBot(null, isBot -> {
+            if (isBot) {
+                textAiStatus.setText("AI: BOT DETECTED");
+                textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                Toast.makeText(this, "Security Alert: Possible AI Bot", Toast.LENGTH_LONG).show();
+            } else {
+                AiService.verifySpeaker(targetPhone, null, result -> {
+                    textAiStatus.setText("AI: IDENTITY VERIFIED");
+                    textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+                });
+            }
+        });
+    }
+
+    private void setupSignaling() {
+        signalingClient = new SignalingClient(selfPhone, new SignalingClient.SignalingInterface() {
+            @Override
+            public void onRemoteAnswerReceived(SessionDescription description) {
+                if (peerConnection != null) {
+                    Log.d(TAG, "Answer Received - Connecting...");
+                    peerConnection.setRemoteDescription(new SimpleSdpObserver() {
+                        @Override
+                        public void onSetSuccess() {
+                            runOnUiThread(() -> drainRemoteCandidates());
+                        }
+                    }, description);
+                }
+            }
+
+            @Override
+            public void onRemoteIceCandidateReceived(IceCandidate candidate) {
+                if (peerConnection != null && peerConnection.getRemoteDescription() != null) {
+                    peerConnection.addIceCandidate(candidate);
+                } else {
+                    pendingIceCandidates.add(candidate);
+                }
+            }
+
+            @Override
+            public void onCallEnded() {
+                runOnUiThread(() -> {
+                    if (!isFinishing()) {
+                        Toast.makeText(CallingActivity.this, "Call Ended", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                });
+            }
+        });
+    }
+
+    private void drainRemoteCandidates() {
+        if (peerConnection == null || peerConnection.getRemoteDescription() == null) return;
+        Log.d(TAG, "Draining " + pendingIceCandidates.size() + " candidates");
+        for (IceCandidate candidate : pendingIceCandidates) {
+            peerConnection.addIceCandidate(candidate);
+        }
+        pendingIceCandidates.clear();
+    }
+
+    private void startCallFlow() {
+        initializeWebRTC();
+
+        if (isIncoming) {
+            String remoteSdp = getIntent().getStringExtra("REMOTE_OFFER");
+            if (remoteSdp != null) {
+                SessionDescription offer = new SessionDescription(SessionDescription.Type.OFFER, remoteSdp);
+                peerConnection.setRemoteDescription(new SimpleSdpObserver() {
+                    @Override
+                    public void onSetSuccess() {
+                        runOnUiThread(() -> {
+                            createAnswer();
+                            drainRemoteCandidates();
+                        });
+                    }
+                }, offer);
+            }
+        } else {
+            createCallOffer();
+        }
+    }
+
+    private void createCallOffer() {
+        MediaConstraints constraints = new MediaConstraints();
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        peerConnection.createOffer(new SimpleSdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                signalingClient.sendOffer(targetPhone, selfPhone, sessionDescription);
+            }
+        }, constraints);
+    }
+
+    private void createAnswer() {
+        MediaConstraints constraints = new MediaConstraints();
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        peerConnection.createAnswer(new SimpleSdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                signalingClient.sendAnswer(targetPhone, sessionDescription);
+            }
+        }, constraints);
+    }
+
+    private void startRinging() {
+        try {
+            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            ringtone = RingtoneManager.getRingtone(getApplicationContext(), notification);
+            if (ringtone != null) ringtone.play();
+        } catch (Exception e) {
+            Log.e(TAG, "Ringtone error", e);
+        }
+    }
+
+    private void stopRinging() {
+        if (ringtone != null && ringtone.isPlaying()) ringtone.stop();
+    }
+
+    private void acceptCall() {
+        stopRinging();
+        btnAcceptCall.setVisibility(View.GONE);
+        textCallTimer.setText("Connecting...");
+        if (checkPermissions()) {
+            startCallFlow();
+        } else {
+            requestPermissions();
+        }
+    }
+    
+    private void endCall() {
+        finish();
+    }
+
+    private void initializeWebRTC() {
+        PeerConnectionFactory.InitializationOptions initializationOptions =
+                PeerConnectionFactory.InitializationOptions.builder(this).createInitializationOptions();
+        PeerConnectionFactory.initialize(initializationOptions);
+
+        factory = PeerConnectionFactory.builder()
+                .setOptions(new PeerConnectionFactory.Options())
+                .createPeerConnectionFactory();
+
+        MediaConstraints audioConstraints = new MediaConstraints();
+        audioSource = factory.createAudioSource(audioConstraints);
+        localAudioTrack = factory.createAudioTrack("101", audioSource);
+
+        List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+
+        PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
+        peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
+            @Override public void onSignalingChange(PeerConnection.SignalingState s) {}
+            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) {
+                Log.d(TAG, "ICE State: " + s.name());
+                if (s == PeerConnection.IceConnectionState.CONNECTED || s == PeerConnection.IceConnectionState.COMPLETED) {
+                    onCallConnected();
+                }
+            }
+            @Override public void onIceConnectionReceivingChange(boolean b) {}
+            @Override public void onIceGatheringChange(PeerConnection.IceGatheringState s) {}
+            @Override public void onIceCandidate(IceCandidate iceCandidate) {
+                signalingClient.sendIceCandidate(targetPhone, iceCandidate);
+            }
+            @Override public void onIceCandidatesRemoved(IceCandidate[] i) {}
+            @Override public void onAddStream(MediaStream m) {}
+            @Override public void onRemoveStream(MediaStream m) {}
+            @Override public void onDataChannel(DataChannel d) {}
+            @Override public void onRenegotiationNeeded() {}
+            @Override public void onAddTrack(RtpReceiver r, MediaStream[] m) {}
+        });
+
+        peerConnection.addTrack(localAudioTrack);
+    }
+
+    private void setupActions() {
+        setupActionItem(findViewById(R.id.action_mute), R.drawable.ic_mic, R.string.label_mute);
+        setupActionItem(findViewById(R.id.action_speaker), R.drawable.ic_speaker, R.string.label_speaker);
+        setupActionItem(findViewById(R.id.action_ai_mode), R.drawable.ic_ai_mode, R.string.label_ai_mode);
+        setupActionItem(findViewById(R.id.action_record), R.drawable.ic_record, R.string.label_record);
+        setupActionItem(findViewById(R.id.action_hold), R.drawable.ic_hold, R.string.label_hold);
+        setupActionItem(findViewById(R.id.action_keypad), R.drawable.ic_keypad, R.string.label_keypad);
+    }
+
+    private void setupActionItem(View container, int iconRes, int labelRes) {
+        if (container == null) return;
+        FloatingActionButton fab = container.findViewById(R.id.fab_action);
+        TextView label = container.findViewById(R.id.text_action_label);
+        fab.setImageResource(iconRes);
+        label.setText(labelRes);
+
+        container.setOnClickListener(v -> {
+            boolean isSelected = !v.isSelected();
+            v.setSelected(isSelected);
+
+            // Change colors to show active/selected state
+            if (isSelected) {
+                fab.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
+                fab.setImageTintList(ColorStateList.valueOf(Color.parseColor("#0F172A"))); // Dark color for contrast
+                label.setAlpha(1.0f);
+            } else {
+                fab.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))); // Semi-transparent
+                fab.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+                label.setAlpha(0.8f);
+            }
+
+            // Real call actions
+            if (labelRes == R.string.label_mute && localAudioTrack != null) {
+                localAudioTrack.setEnabled(!isSelected);
+            } else if (labelRes == R.string.label_speaker) {
+                audioManager.setSpeakerphoneOn(isSelected);
+            }
+        });
+    }
+
+    private void runTimer() {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (running) {
+                    int mins = (seconds % 3600) / 60;
+                    int secs = seconds % 60;
+                    textCallTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", mins, secs));
+                    seconds++;
+                    handler.postDelayed(this, 1000);
+                }
+            }
+        });
+    }
+
+    private boolean checkPermissions() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestPermissions() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_CODE);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        running = false;
+        stopRinging();
+        if (signalingClient != null) {
+            signalingClient.endCall(targetPhone);
+            signalingClient.destroy();
+        }
+        if (peerConnection != null) peerConnection.dispose();
+        if (audioSource != null) audioSource.dispose();
+        if (factory != null) factory.dispose();
+    }
+
+    private static class SimpleSdpObserver implements SdpObserver {
+        @Override public void onCreateSuccess(SessionDescription s) {}
+        @Override public void onSetSuccess() {}
+        @Override public void onCreateFailure(String s) { Log.e(TAG, "SDP Error: " + s); }
+        @Override public void onSetFailure(String s) { Log.e(TAG, "SDP Error: " + s); }
+    }
+}

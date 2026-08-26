@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_calling_gradient"
+    tools:context=".CallingActivity">
+
+    <!-- Top Glow / Shadow -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:background="@drawable/bg_calling_gradient"
+        android:alpha="0.5"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- AI Status Badge -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/ai_status_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="60dp"
+        app:cardBackgroundColor="#33000000"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#44FFFFFF"
+        app:strokeWidth="1dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp">
+
+            <ImageView
+                android:id="@+id/ai_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_ai_mode"
+                app:tint="#60A5FA" />
+
+            <TextView
+                android:id="@+id/text_ai_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="AI GUARD ACTIVE"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Contact Info Section -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_avatar"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:layout_marginTop="40dp"
+        app:cardCornerRadius="70dp"
+        app:cardElevation="20dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="#33FFFFFF"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ai_status_badge">
+
+        <ImageView
+            android:id="@+id/img_avatar_calling"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#1E293B"
+            android:padding="32dp"
+            android:src="@drawable/ic_contacts"
+            app:tint="@color/white"
+            android:contentDescription="@string/desc_caller_avatar" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/text_caller_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="John Doe"
+        android:textColor="@color/white"
+        android:textSize="32sp"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.02"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/card_avatar" />
+
+    <TextView
+        android:id="@+id/text_call_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/timer_initial"
+        android:textColor="#B3FFFFFF"
+        android:textSize="20sp"
+        android:fontFamily="sans-serif-light"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/text_caller_name" />
+
+    <!-- AI Spam Warning (Hidden by default) -->
+    <TextView
+        android:id="@+id/text_spam_warning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="#FEF2F2"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:text="⚠ POSSIBLE SPAM CALL"
+        android:textColor="#EF4444"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/text_call_timer" />
+
+    <!-- Controls Container -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/controls_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="48dp"
+        app:layout_constraintBottom_toTopOf="@+id/btn_end_call">
+
+        <GridLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:columnCount="3"
+            android:alignmentMode="alignMargins"
+            android:useDefaultMargins="true"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <include layout="@layout/item_call_action" android:id="@+id/action_mute" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_speaker" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_ai_mode" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_record" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_hold" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_keypad" />
+
+        </GridLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Call Action Buttons -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_accept_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="64dp"
+        android:layout_marginEnd="32dp"
+        android:src="@drawable/ic_call"
+        android:visibility="gone"
+        app:backgroundTint="#22C55E"
+        app:elevation="12dp"
+        app:fabCustomSize="72dp"
+        app:maxImageSize="36dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btn_end_call"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:tint="@color/white"
+        android:contentDescription="@string/action_add" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_end_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="64dp"
+        android:src="@drawable/ic_call_end"
+        app:backgroundTint="#EF4444"
+        app:elevation="12dp"
+        app:fabCustomSize="72dp"
+        app:maxImageSize="36dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btn_accept_call"
+        app:tint="@color/white"
+        android:contentDescription="@string/desc_end_call" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
