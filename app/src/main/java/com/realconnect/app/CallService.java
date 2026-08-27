@@ -13,6 +13,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -21,8 +22,8 @@ import org.webrtc.SessionDescription;
 public class CallService extends Service {
 
     private static final String TAG = "CallService";
-    public static final String CHANNEL_SERVICE = "realconnect_service_channel";
-    public static final String CHANNEL_CALLS = "realconnect_incoming_calls_channel";
+    public static final String CHANNEL_SERVICE = "realconnect_service_channel_v1";
+    public static final String CHANNEL_CALLS = "realconnect_incoming_calls_channel_v3";
     public static final int SERVICE_NOTIFICATION_ID = 1001;
     public static final int INCOMING_CALL_NOTIFICATION_ID = 2002;
 
@@ -99,7 +100,7 @@ public class CallService extends Service {
                     "Incoming Calls",
                     NotificationManager.IMPORTANCE_HIGH
             );
-            callChannel.setDescription("Rings and shows incoming calls");
+            callChannel.setDescription("Full-screen incoming calls and notifications");
             callChannel.enableLights(true);
             callChannel.enableVibration(true);
             callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
@@ -125,7 +126,7 @@ public class CallService extends Service {
 
         return new NotificationCompat.Builder(this, CHANNEL_SERVICE)
                 .setContentTitle("RealConnect Active")
-                .setContentText("Ready for secure incoming calls & messages")
+                .setContentText("Ready for secure calls")
                 .setSmallIcon(R.drawable.ic_call)
                 .setContentIntent(pendingIntent)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -165,13 +166,32 @@ public class CallService extends Service {
     }
 
     private void showIncomingCall(String callerPhone, String callerName, boolean isSpam, String sdpOffer) {
+        // Wake device screen up
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                PowerManager.WakeLock wl = pm.newWakeLock(
+                        PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                        "RealConnect:IncomingCallWakeLock"
+                );
+                wl.acquire(10000); // 10 seconds
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error acquiring WakeLock", e);
+        }
+
         Intent callIntent = new Intent(this, CallingActivity.class);
         callIntent.putExtra("IS_INCOMING", true);
         callIntent.putExtra("IS_SPAM", isSpam);
         callIntent.putExtra("REMOTE_OFFER", sdpOffer);
         callIntent.putExtra("CONTACT_PHONE", callerPhone);
         callIntent.putExtra("CONTACT_NAME", callerName);
-        callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        callIntent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK |
+                Intent.FLAG_ACTIVITY_SINGLE_TOP |
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT |
+                Intent.FLAG_ACTIVITY_CLEAR_TOP
+        );
 
         PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
                 this,
@@ -193,14 +213,15 @@ public class CallService extends Service {
                 .setAutoCancel(true)
                 .setOngoing(true)
                 .setContentIntent(fullScreenPendingIntent)
-                .setFullScreenIntent(fullScreenPendingIntent, true);
+                .setFullScreenIntent(fullScreenPendingIntent, true)
+                .addAction(R.drawable.ic_call, "Answer", fullScreenPendingIntent);
 
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
             notificationManager.notify(INCOMING_CALL_NOTIFICATION_ID, builder.build());
         }
 
-        // Direct launch into CallingActivity
+        // Direct Full Screen Activity Launch
         try {
             startActivity(callIntent);
         } catch (Exception e) {
