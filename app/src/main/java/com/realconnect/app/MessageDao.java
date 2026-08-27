@@ -24,6 +24,9 @@ public interface MessageDao {
     @Query("SELECT COUNT(*) FROM messages WHERE isRead = 0 AND receiverPhone = :selfPhone")
     int getUnreadMessageCount(String selfPhone);
 
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isRead = 0 AND receiverPhone = :selfPhone")
+    int getUnreadCountForChat(String chatId, String selfPhone);
+
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND receiverPhone = :selfPhone")
     void markChatAsRead(String chatId, String selfPhone);
 

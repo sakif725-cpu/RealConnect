@@ -1,6 +1,8 @@
 package com.realconnect.app;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -67,7 +69,20 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
             holder.textTime.setText(dateFormat.format(new Date(message.getTimestamp())));
         }
 
-        holder.badgeUnread.setVisibility(!message.isRead() && !cleanSender.equals(selfPhone) ? View.VISIBLE : View.GONE);
+        // Unread message count badge for this conversation
+        int unreadCount = ChatRepository.getInstance(context).getUnreadCountForChat(message.getChatId(), selfPhone);
+        if (unreadCount > 0) {
+            holder.badgeUnreadCount.setVisibility(View.VISIBLE);
+            holder.badgeUnreadCount.setText(unreadCount > 99 ? "99+" : String.valueOf(unreadCount));
+            holder.textLastMessage.setTextColor(Color.parseColor("#0F172A"));
+            holder.textLastMessage.setTypeface(null, Typeface.BOLD);
+            holder.textTime.setTextColor(Color.parseColor("#0EA5E9"));
+        } else {
+            holder.badgeUnreadCount.setVisibility(View.GONE);
+            holder.textLastMessage.setTextColor(Color.parseColor("#64748B"));
+            holder.textLastMessage.setTypeface(null, Typeface.NORMAL);
+            holder.textTime.setTextColor(Color.parseColor("#94A3B8"));
+        }
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
@@ -82,15 +97,14 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
     }
 
     static class ChatPreviewViewHolder extends RecyclerView.ViewHolder {
-        TextView textName, textLastMessage, textTime;
-        View badgeUnread;
+        TextView textName, textLastMessage, textTime, badgeUnreadCount;
 
         ChatPreviewViewHolder(@NonNull View itemView) {
             super(itemView);
             textName = itemView.findViewById(R.id.text_chat_name);
             textLastMessage = itemView.findViewById(R.id.text_chat_last_message);
             textTime = itemView.findViewById(R.id.text_chat_time);
-            badgeUnread = itemView.findViewById(R.id.badge_unread);
+            badgeUnreadCount = itemView.findViewById(R.id.badge_unread_count);
         }
     }
 }

@@ -114,6 +114,11 @@ public class ChatRepository {
         return messageDao.getUnreadMessageCount(cleanSelf);
     }
 
+    public int getUnreadCountForChat(String chatId, String selfPhone) {
+        String cleanSelf = cleanPhone(selfPhone);
+        return messageDao.getUnreadCountForChat(chatId, cleanSelf);
+    }
+
     public void markAsRead(String chatId, String selfPhone) {
         String cleanSelf = cleanPhone(selfPhone);
         messageDao.markChatAsRead(chatId, cleanSelf);

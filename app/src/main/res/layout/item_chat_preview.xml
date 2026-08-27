@@ -60,7 +60,7 @@
         android:maxLines="1"
         android:textColor="@color/textColorSecondary"
         android:textSize="14sp"
-        app:layout_constraintEnd_toStartOf="@id/badge_unread"
+        app:layout_constraintEnd_toStartOf="@id/badge_unread_count"
         app:layout_constraintStart_toEndOf="@id/card_chat_avatar"
         app:layout_constraintTop_toBottomOf="@id/text_chat_name"
         tools:text="Hey, let's connect on RealConnect!" />
@@ -76,17 +76,24 @@
         app:layout_constraintTop_toTopOf="@id/text_chat_name"
         tools:text="12:45 PM" />
 
-    <!-- Unread Dot Badge -->
-    <View
-        android:id="@+id/badge_unread"
-        android:layout_width="10dp"
-        android:layout_height="10dp"
-        android:background="@drawable/bg_avatar"
-        android:backgroundTint="@color/colorPrimary"
+    <!-- Unread Number Badge -->
+    <TextView
+        android:id="@+id/badge_unread_count"
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        android:minWidth="20dp"
+        android:background="@drawable/bg_badge_counter"
+        android:gravity="center"
+        android:paddingHorizontal="6dp"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        android:textStyle="bold"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@id/text_chat_last_message"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/text_chat_last_message" />
+        app:layout_constraintTop_toTopOf="@id/text_chat_last_message"
+        tools:text="3"
+        tools:visibility="visible" />
 
     <!-- Divider -->
     <View
