@@ -16,77 +16,192 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.util.List;
 
 public class CallFragment extends Fragment {
 
+    private View layoutCallLogs;
+    private View layoutDialer;
+    private View layoutEmptyLogs;
+    private TextView btnClearLogs;
+
+    private RecyclerView recyclerCallLogs;
+    private CallLogAdapter callLogAdapter;
+    private CallLogRepository.OnCallLogsChangedListener callLogsListener;
+
     private TextView textPhoneNumber;
     private TextView textContactName;
+    private ImageButton btnDelete;
     private ImageButton btnAddToContacts;
-    private StringBuilder phoneNumber = new StringBuilder();
+    private final StringBuilder phoneNumber = new StringBuilder();
     private ToneGenerator toneGenerator;
-
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        try {
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_DTMF, 80);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_call, container, false);
 
-        textPhoneNumber = view.findViewById(R.id.text_phone_number);
-        textContactName = view.findViewById(R.id.text_contact_name);
-        btnAddToContacts = view.findViewById(R.id.btn_add_to_contacts);
+        try {
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_DTMF, 80);
+        } catch (Exception ignored) {}
 
-        // Setup dial pad click listeners
-        int[] buttonIds = {
-                R.id.btn_0, R.id.btn_1, R.id.btn_2, R.id.btn_3, R.id.btn_4,
-                R.id.btn_5, R.id.btn_6, R.id.btn_7, R.id.btn_8, R.id.btn_9,
-                R.id.btn_star, R.id.btn_hash
-        };
-
-        View.OnClickListener dialListener = v -> {
-            if (v instanceof Button) {
-                String digit = ((Button) v).getText().toString();
-                phoneNumber.append(digit);
-                playTone(digit);
-                updateUi();
-            }
-        };
-
-        for (int id : buttonIds) {
-            view.findViewById(id).setOnClickListener(dialListener);
-        }
-
-        view.findViewById(R.id.btn_delete).setOnClickListener(v -> {
-            if (phoneNumber.length() > 0) {
-                phoneNumber.deleteCharAt(phoneNumber.length() - 1);
-                updateUi();
-            }
-        });
-
-        btnAddToContacts.setOnClickListener(v -> showAddContactDialog(phoneNumber.toString()));
-
-        view.findViewById(R.id.btn_make_call).setOnClickListener(v -> {
-            String number = phoneNumber.toString();
-            if (!number.isEmpty()) {
-                initiateCall(number);
-            }
-        });
+        initCallLogsView(view);
+        initDialerView(view);
 
         return view;
     }
 
+    private void initCallLogsView(View view) {
+        layoutCallLogs = view.findViewById(R.id.layout_call_logs_container);
+        layoutEmptyLogs = view.findViewById(R.id.layout_empty_call_logs);
+        btnClearLogs = view.findViewById(R.id.btn_clear_logs);
+        recyclerCallLogs = view.findViewById(R.id.recycler_call_logs);
+        recyclerCallLogs.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        callLogAdapter = new CallLogAdapter(new CallLogAdapter.OnCallLogActionListener() {
+            @Override
+            public void onCall(String phone, String name) {
+                initiateCall(phone, name);
+            }
+
+            @Override
+            public void onLongClick(CallLogEntry entry) {
+                showCallLogOptions(entry);
+            }
+        });
+        recyclerCallLogs.setAdapter(callLogAdapter);
+
+        FloatingActionButton btnOpenDialpad = view.findViewById(R.id.btn_open_dialpad);
+        btnOpenDialpad.setOnClickListener(v -> showDialerView());
+
+        btnClearLogs.setOnClickListener(v -> {
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Clear History")
+                    .setMessage("Are you sure you want to clear all call logs?")
+                    .setPositiveButton("Clear All", (dialog, which) -> {
+                        CallLogRepository.getInstance(requireContext()).clearCallLogs();
+                        loadCallLogs();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+
+        callLogsListener = () -> {
+            if (isAdded() && getActivity() != null) {
+                getActivity().runOnUiThread(this::loadCallLogs);
+            }
+        };
+        CallLogRepository.getInstance(requireContext()).addListener(callLogsListener);
+    }
+
+    private void initDialerView(View view) {
+        layoutDialer = view.findViewById(R.id.layout_dialer_container);
+        textPhoneNumber = view.findViewById(R.id.text_phone_number);
+        textContactName = view.findViewById(R.id.text_contact_name);
+        btnDelete = view.findViewById(R.id.btn_delete);
+        btnAddToContacts = view.findViewById(R.id.btn_add_to_contacts);
+        FloatingActionButton btnMakeCall = view.findViewById(R.id.btn_make_call);
+        ImageButton btnCloseDialpad = view.findViewById(R.id.btn_close_dialpad);
+
+        btnCloseDialpad.setOnClickListener(v -> showCallLogsView());
+
+        int[] buttonIds = {
+                R.id.btn_0, R.id.btn_1, R.id.btn_2, R.id.btn_3,
+                R.id.btn_4, R.id.btn_5, R.id.btn_6, R.id.btn_7,
+                R.id.btn_8, R.id.btn_9, R.id.btn_star, R.id.btn_hash
+        };
+
+        for (int id : buttonIds) {
+            Button button = view.findViewById(id);
+            if (button != null) {
+                button.setOnClickListener(v -> {
+                    String digit = button.getText().toString();
+                    appendDigit(digit);
+                    playTone(digit);
+                });
+            }
+        }
+
+        btnDelete.setOnClickListener(v -> deleteDigit());
+        btnDelete.setOnLongClickListener(v -> {
+            clearDigits();
+            return true;
+        });
+
+        btnAddToContacts.setOnClickListener(v -> showAddContactDialog(phoneNumber.toString()));
+
+        btnMakeCall.setOnClickListener(v -> {
+            String number = phoneNumber.toString();
+            if (!TextUtils.isEmpty(number)) {
+                initiateCall(number, null);
+            } else {
+                Toast.makeText(getContext(), "Enter a number to call", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadCallLogs();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (callLogsListener != null && getContext() != null) {
+            CallLogRepository.getInstance(requireContext()).removeListener(callLogsListener);
+        }
+    }
+
+    private void showDialerView() {
+        layoutCallLogs.setVisibility(View.GONE);
+        layoutDialer.setVisibility(View.VISIBLE);
+    }
+
+    private void showCallLogsView() {
+        layoutDialer.setVisibility(View.GONE);
+        layoutCallLogs.setVisibility(View.VISIBLE);
+        loadCallLogs();
+    }
+
+    private void loadCallLogs() {
+        if (!isAdded() || getContext() == null) return;
+        List<CallLogEntry> logs = CallLogRepository.getInstance(requireContext()).getCallLogs();
+        if (logs == null || logs.isEmpty()) {
+            layoutEmptyLogs.setVisibility(View.VISIBLE);
+            btnClearLogs.setVisibility(View.GONE);
+            callLogAdapter.setCallLogs(null);
+        } else {
+            layoutEmptyLogs.setVisibility(View.GONE);
+            btnClearLogs.setVisibility(View.VISIBLE);
+            callLogAdapter.setCallLogs(logs);
+        }
+    }
+
+    private void appendDigit(String digit) {
+        phoneNumber.append(digit);
+        updateDialerUi();
+    }
+
+    private void deleteDigit() {
+        if (phoneNumber.length() > 0) {
+            phoneNumber.deleteCharAt(phoneNumber.length() - 1);
+            updateDialerUi();
+        }
+    }
+
+    private void clearDigits() {
+        phoneNumber.setLength(0);
+        updateDialerUi();
+    }
+
     private void playTone(String digit) {
         if (toneGenerator == null) return;
-        
         int tone = -1;
         switch (digit) {
             case "0": tone = ToneGenerator.TONE_DTMF_0; break;
@@ -102,16 +217,15 @@ public class CallFragment extends Fragment {
             case "*": tone = ToneGenerator.TONE_DTMF_S; break;
             case "#": tone = ToneGenerator.TONE_DTMF_P; break;
         }
-        
         if (tone != -1) {
             toneGenerator.startTone(tone, 150);
         }
     }
 
-    private void updateUi() {
+    private void updateDialerUi() {
         String number = phoneNumber.toString();
         textPhoneNumber.setText(number);
-        
+
         String contactName = ContactRepository.getInstance(requireContext()).findContactByNumber(number);
         if (contactName != null) {
             textContactName.setText(contactName);
@@ -122,12 +236,26 @@ public class CallFragment extends Fragment {
         }
     }
 
-    private void initiateCall(String number) {
-        String contactName = ContactRepository.getInstance(requireContext()).findContactByNumber(number);
+    private void initiateCall(String number, @Nullable String name) {
+        String contactName = name != null ? name : ContactRepository.getInstance(requireContext()).findContactByNumber(number);
         Intent intent = new Intent(getActivity(), CallingActivity.class);
         intent.putExtra("CONTACT_NAME", contactName != null ? contactName : number);
         intent.putExtra("CONTACT_PHONE", number);
         startActivity(intent);
+    }
+
+    private void showCallLogOptions(CallLogEntry entry) {
+        String[] options = {"Call " + (entry.getContactName() != null ? entry.getContactName() : entry.getPhoneNumber()), "Delete from logs"};
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Call Details")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        initiateCall(entry.getPhoneNumber(), entry.getContactName());
+                    } else if (which == 1) {
+                        CallLogRepository.getInstance(requireContext()).deleteCallLog(entry.getId());
+                    }
+                })
+                .show();
     }
 
     private void showAddContactDialog(String number) {
@@ -147,7 +275,7 @@ public class CallFragment extends Fragment {
                     if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
                         ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
                         Toast.makeText(getContext(), "Contact saved", Toast.LENGTH_SHORT).show();
-                        updateUi();
+                        updateDialerUi();
                     } else {
                         Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
                     }

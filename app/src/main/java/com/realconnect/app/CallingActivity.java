@@ -430,6 +430,7 @@ public class CallingActivity extends AppCompatActivity {
         super.onDestroy();
         running = false;
         stopRinging();
+        saveCallLogEntry();
         if (signalingClient != null) {
             signalingClient.endCall(targetPhone);
             signalingClient.destroy();
@@ -439,6 +440,32 @@ public class CallingActivity extends AppCompatActivity {
         if (factory != null) factory.dispose();
 
         CallService.resumeListening();
+    }
+
+    private void saveCallLogEntry() {
+        if (targetPhone == null || targetPhone.isEmpty()) return;
+        try {
+            String name = getIntent().getStringExtra("CONTACT_NAME");
+            int callType;
+            if (isIncoming) {
+                callType = isConnected ? CallLogEntry.TYPE_INCOMING : CallLogEntry.TYPE_MISSED;
+            } else {
+                callType = CallLogEntry.TYPE_OUTGOING;
+            }
+            boolean isSpam = getIntent().getBooleanExtra("IS_SPAM", false);
+
+            CallLogEntry entry = new CallLogEntry(
+                    targetPhone,
+                    name,
+                    callType,
+                    System.currentTimeMillis(),
+                    seconds,
+                    isSpam
+            );
+            CallLogRepository.getInstance(this).addCallLog(entry);
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving call log", e);
+        }
     }
 
     private static class SimpleSdpObserver implements SdpObserver {
