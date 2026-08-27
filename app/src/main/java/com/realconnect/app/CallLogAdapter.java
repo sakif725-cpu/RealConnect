@@ -19,10 +19,31 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
 
     public interface OnCallLogActionListener {
         void onCall(String phoneNumber, String contactName);
-        void onLongClick(CallLogEntry entry);
+        void onLongClick(GroupedCallLog group);
     }
 
-    private final List<CallLogEntry> callLogs = new ArrayList<>();
+    public static class GroupedCallLog {
+        private final CallLogEntry latestEntry;
+        private int count;
+        private final List<Integer> entryIds = new ArrayList<>();
+
+        public GroupedCallLog(CallLogEntry entry) {
+            this.latestEntry = entry;
+            this.count = 1;
+            this.entryIds.add(entry.getId());
+        }
+
+        public void increment(int id) {
+            this.count++;
+            this.entryIds.add(id);
+        }
+
+        public CallLogEntry getLatestEntry() { return latestEntry; }
+        public int getCount() { return count; }
+        public List<Integer> getEntryIds() { return entryIds; }
+    }
+
+    private final List<GroupedCallLog> groupedLogs = new ArrayList<>();
     private final OnCallLogActionListener listener;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault());
@@ -32,9 +53,33 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
     }
 
     public void setCallLogs(List<CallLogEntry> logs) {
-        callLogs.clear();
-        if (logs != null) {
-            callLogs.addAll(logs);
+        groupedLogs.clear();
+        if (logs != null && !logs.isEmpty()) {
+            GroupedCallLog currentGroup = null;
+            for (CallLogEntry entry : logs) {
+                if (currentGroup == null) {
+                    currentGroup = new GroupedCallLog(entry);
+                } else {
+                    String prevPhone = currentGroup.getLatestEntry().getPhoneNumber();
+                    String currPhone = entry.getPhoneNumber();
+                    int prevType = currentGroup.getLatestEntry().getCallType();
+                    int currType = entry.getCallType();
+
+                    boolean samePhone = (prevPhone != null && currPhone != null &&
+                            ChatRepository.cleanPhone(prevPhone).equals(ChatRepository.cleanPhone(currPhone)));
+                    boolean sameType = (prevType == currType);
+
+                    if (samePhone && sameType) {
+                        currentGroup.increment(entry.getId());
+                    } else {
+                        groupedLogs.add(currentGroup);
+                        currentGroup = new GroupedCallLog(entry);
+                    }
+                }
+            }
+            if (currentGroup != null) {
+                groupedLogs.add(currentGroup);
+            }
         }
         notifyDataSetChanged();
     }
@@ -48,11 +93,18 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
 
     @Override
     public void onBindViewHolder(@NonNull CallLogViewHolder holder, int position) {
-        CallLogEntry entry = callLogs.get(position);
+        GroupedCallLog group = groupedLogs.get(position);
+        CallLogEntry entry = group.getLatestEntry();
 
         String displayName = (entry.getContactName() != null && !entry.getContactName().isEmpty())
                 ? entry.getContactName() : entry.getPhoneNumber();
-        holder.textName.setText(displayName != null ? displayName : "Unknown");
+        if (displayName == null) displayName = "Unknown";
+
+        if (group.getCount() > 1) {
+            holder.textName.setText(displayName + " (" + group.getCount() + ")");
+        } else {
+            holder.textName.setText(displayName);
+        }
 
         // Format Date / Time
         String timeStr;
@@ -106,7 +158,7 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
 
         holder.itemView.setOnLongClickListener(v -> {
             if (listener != null) {
-                listener.onLongClick(entry);
+                listener.onLongClick(group);
                 return true;
             }
             return false;
@@ -115,7 +167,7 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
 
     @Override
     public int getItemCount() {
-        return callLogs.size();
+        return groupedLogs.size();
     }
 
     static class CallLogViewHolder extends RecyclerView.ViewHolder {

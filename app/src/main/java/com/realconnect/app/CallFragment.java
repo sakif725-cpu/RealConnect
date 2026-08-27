@@ -69,8 +69,8 @@ public class CallFragment extends Fragment {
             }
 
             @Override
-            public void onLongClick(CallLogEntry entry) {
-                showCallLogOptions(entry);
+            public void onLongClick(CallLogAdapter.GroupedCallLog group) {
+                showCallLogOptions(group);
             }
         });
         recyclerCallLogs.setAdapter(callLogAdapter);
@@ -244,15 +244,20 @@ public class CallFragment extends Fragment {
         startActivity(intent);
     }
 
-    private void showCallLogOptions(CallLogEntry entry) {
-        String[] options = {"Call " + (entry.getContactName() != null ? entry.getContactName() : entry.getPhoneNumber()), "Delete from logs"};
+    private void showCallLogOptions(CallLogAdapter.GroupedCallLog group) {
+        CallLogEntry entry = group.getLatestEntry();
+        String title = (entry.getContactName() != null && !entry.getContactName().isEmpty())
+                ? entry.getContactName() : entry.getPhoneNumber();
+        String[] options = {"Call " + title, "Delete from history"};
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Call Details")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
                         initiateCall(entry.getPhoneNumber(), entry.getContactName());
                     } else if (which == 1) {
-                        CallLogRepository.getInstance(requireContext()).deleteCallLog(entry.getId());
+                        for (int id : group.getEntryIds()) {
+                            CallLogRepository.getInstance(requireContext()).deleteCallLog(id);
+                        }
                     }
                 })
                 .show();

@@ -442,7 +442,11 @@ public class CallingActivity extends AppCompatActivity {
         CallService.resumeListening();
     }
 
+    private boolean callLogSaved = false;
+
     private void saveCallLogEntry() {
+        if (callLogSaved) return;
+        callLogSaved = true;
         if (targetPhone == null || targetPhone.isEmpty()) return;
         try {
             String name = getIntent().getStringExtra("CONTACT_NAME");
