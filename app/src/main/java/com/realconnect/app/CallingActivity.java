@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.Ringtone;
@@ -19,6 +20,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -26,6 +28,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import org.webrtc.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +114,9 @@ public class CallingActivity extends AppCompatActivity {
         controlsContainer = findViewById(R.id.controls_container);
 
         String name = getIntent().getStringExtra("CONTACT_NAME");
+        ImageView imgAvatarCalling = findViewById(R.id.img_avatar_calling);
+        loadCallerAvatar(imgAvatarCalling, targetPhone, name);
+
         textCallerName.setText(name != null && !name.isEmpty() ? name : (targetPhone != null ? targetPhone : "Unknown"));
 
         btnEndCall.setOnClickListener(v -> endCall());
@@ -138,6 +147,45 @@ public class CallingActivity extends AppCompatActivity {
 
         setupActions();
         setupSignaling();
+    }
+
+    private void loadCallerAvatar(ImageView imgAvatar, String phone, String name) {
+        if (imgAvatar == null) return;
+
+        // 1. Initial placeholder with clean background and initial letter
+        String displayName = (name != null && !name.trim().isEmpty()) ? name : (phone != null ? phone : "?");
+        Bitmap initialAvatar = ImageUtils.createAvatarWithInitial(displayName, 280, Color.parseColor("#1E293B"), Color.WHITE);
+        imgAvatar.setPadding(0, 0, 0, 0);
+        imgAvatar.setImageTintList(null);
+        imgAvatar.setColorFilter(null);
+        imgAvatar.setImageBitmap(initialAvatar);
+
+        // 2. Fetch profile picture from Firebase Realtime Database
+        String cleanPhone = ChatRepository.cleanPhone(phone);
+        if (!cleanPhone.isEmpty()) {
+            FirebaseDatabase.getInstance().getReference("users")
+                    .child(cleanPhone)
+                    .child("profileImageBase64")
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
+                            String base64 = snapshot.getValue(String.class);
+                            if (base64 != null && !base64.trim().isEmpty()) {
+                                Bitmap photo = ImageUtils.base64ToBitmap(base64);
+                                if (photo != null && !isFinishing() && !isDestroyed()) {
+                                    runOnUiThread(() -> {
+                                        imgAvatar.setPadding(0, 0, 0, 0);
+                                        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                                        imgAvatar.setImageBitmap(photo);
+                                    });
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {}
+                    });
+        }
     }
 
     private void showSpamWarning() {

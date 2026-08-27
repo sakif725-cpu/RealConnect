@@ -50,6 +50,22 @@ public class ProfileFragment extends Fragment {
                             updateProfileImageUI(uri);
                             sharedPreferences.edit().putString(KEY_IMAGE_URI, uri.toString()).apply();
                             Toast.makeText(getContext(), R.string.msg_profile_photo_updated, Toast.LENGTH_SHORT).show();
+
+                            String selfPhone = sharedPreferences.getString(KEY_PHONE, "");
+                            String cleanPhone = ChatRepository.cleanPhone(selfPhone);
+                            if (!cleanPhone.isEmpty()) {
+                                new Thread(() -> {
+                                    try {
+                                        String base64 = ImageUtils.uriToBase64(requireContext(), uri, 200);
+                                        if (base64 != null) {
+                                            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users")
+                                                    .child(cleanPhone)
+                                                    .child("profileImageBase64")
+                                                    .setValue(base64);
+                                        }
+                                    } catch (Exception ignored) {}
+                                }).start();
+                            }
                         } catch (Exception e) {
                             e.printStackTrace();
                             updateProfileImageUI(null);
