@@ -69,7 +69,15 @@ public class CallService extends Service {
         super.onCreate();
         instance = this;
         createNotificationChannels();
-        startForeground(SERVICE_NOTIFICATION_ID, createServiceNotification());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                startForeground(SERVICE_NOTIFICATION_ID, createServiceNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } catch (Exception e) {
+                startForeground(SERVICE_NOTIFICATION_ID, createServiceNotification());
+            }
+        } else {
+            startForeground(SERVICE_NOTIFICATION_ID, createServiceNotification());
+        }
         setupSignaling();
         setupMessageInbox();
     }

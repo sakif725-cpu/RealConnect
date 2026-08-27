@@ -60,36 +60,42 @@ public class SignalingClient {
     }
 
     public SignalingClient(String selfPhone, SignalingInterface callback) {
-        this.selfPhone = selfPhone;
+        this.selfPhone = ChatRepository.cleanPhone(selfPhone);
         this.callback = callback;
         listenForPayloads();
     }
 
     public static void clearNode(String phone) {
-        if (phone == null || phone.isEmpty()) return;
-        FirebaseDatabase.getInstance().getReference("calls").child(phone).removeValue();
+        String clean = ChatRepository.cleanPhone(phone);
+        if (clean.isEmpty()) return;
+        FirebaseDatabase.getInstance().getReference("calls").child(clean).removeValue();
     }
 
     public void sendOffer(String targetPhone, String senderPhone, SessionDescription sdp) {
-        dbRef.child(targetPhone).child("caller").setValue(senderPhone);
-        dbRef.child(targetPhone).child("offer").setValue(gson.toJson(new SdpPayload(sdp)));
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        String cleanSender = ChatRepository.cleanPhone(senderPhone);
+        dbRef.child(cleanTarget).child("caller").setValue(cleanSender);
+        dbRef.child(cleanTarget).child("offer").setValue(gson.toJson(new SdpPayload(sdp)));
     }
 
     public void sendAnswer(String targetPhone, SessionDescription sdp) {
-        dbRef.child(targetPhone).child("answer").setValue(gson.toJson(new SdpPayload(sdp)));
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        dbRef.child(cleanTarget).child("answer").setValue(gson.toJson(new SdpPayload(sdp)));
     }
 
     public void sendIceCandidate(String targetPhone, IceCandidate candidate) {
-        dbRef.child(targetPhone).child("candidates").push().setValue(gson.toJson(new CandidatePayload(candidate)));
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        dbRef.child(cleanTarget).child("candidates").push().setValue(gson.toJson(new CandidatePayload(candidate)));
     }
 
     public void endCall(String targetPhone) {
-        if (targetPhone != null && !targetPhone.isEmpty()) {
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        if (!cleanTarget.isEmpty()) {
             Map<String, Object> updates = new HashMap<>();
             updates.put("end", true);
             updates.put("offer", null);
             updates.put("caller", null);
-            dbRef.child(targetPhone).updateChildren(updates);
+            dbRef.child(cleanTarget).updateChildren(updates);
         }
         dbRef.child(selfPhone).removeValue();
     }

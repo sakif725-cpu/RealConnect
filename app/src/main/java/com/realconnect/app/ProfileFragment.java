@@ -29,7 +29,7 @@ public class ProfileFragment extends Fragment {
 
     private ImageView profileImage;
     private TextView profileName, profilePhone, profileEmail;
-    private ActivityResultLauncher<String[]> imagePickerLauncher;
+    private ActivityResultLauncher<String> imagePickerLauncher;
     private SharedPreferences sharedPreferences;
 
     @Override
@@ -37,18 +37,25 @@ public class ProfileFragment extends Fragment {
         super.onCreate(savedInstanceState);
         sharedPreferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         
-        // Use OpenDocument to allow for persistable URI permissions
+        // Save picked image directly into internal app storage for 100% Android 12-16 compatibility
         imagePickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.OpenDocument(),
+                new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null && profileImage != null) {
                         try {
-                            // Request permanent access to this file
-                            requireContext().getContentResolver().takePersistableUriPermission(
-                                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                            
-                            updateProfileImageUI(uri);
-                            sharedPreferences.edit().putString(KEY_IMAGE_URI, uri.toString()).apply();
+                            java.io.File avatarFile = new java.io.File(requireContext().getFilesDir(), "profile_avatar.jpg");
+                            try (java.io.InputStream in = requireContext().getContentResolver().openInputStream(uri);
+                                 java.io.OutputStream out = new java.io.FileOutputStream(avatarFile)) {
+                                byte[] buffer = new byte[8192];
+                                int len;
+                                while ((len = in.read(buffer)) != -1) {
+                                    out.write(buffer, 0, len);
+                                }
+                            }
+
+                            Uri localUri = Uri.fromFile(avatarFile);
+                            updateProfileImageUI(localUri);
+                            sharedPreferences.edit().putString(KEY_IMAGE_URI, localUri.toString()).apply();
                             Toast.makeText(getContext(), R.string.msg_profile_photo_updated, Toast.LENGTH_SHORT).show();
 
                             String selfPhone = sharedPreferences.getString(KEY_PHONE, "");
@@ -56,7 +63,7 @@ public class ProfileFragment extends Fragment {
                             if (!cleanPhone.isEmpty()) {
                                 new Thread(() -> {
                                     try {
-                                        String base64 = ImageUtils.uriToBase64(requireContext(), uri, 200);
+                                        String base64 = ImageUtils.uriToBase64(requireContext(), localUri, 240);
                                         if (base64 != null) {
                                             com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users")
                                                     .child(cleanPhone)
@@ -67,8 +74,7 @@ public class ProfileFragment extends Fragment {
                                 }).start();
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
-                            updateProfileImageUI(null);
+                            android.util.Log.e("ProfileFragment", "Error saving profile avatar", e);
                         }
                     }
                 }
@@ -90,7 +96,7 @@ public class ProfileFragment extends Fragment {
         View profileImageContainer = view.findViewById(R.id.profile_image_container);
         if (profileImageContainer != null) {
             profileImageContainer.setOnClickListener(v -> {
-                imagePickerLauncher.launch(new String[]{"image/*"});
+                imagePickerLauncher.launch("image/*");
             });
         }
 
