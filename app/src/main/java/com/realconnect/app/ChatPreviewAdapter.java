@@ -28,7 +28,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
 
     public ChatPreviewAdapter(Context context, String selfPhone, OnChatSelectedListener listener) {
         this.context = context;
-        this.selfPhone = selfPhone != null ? selfPhone.replaceAll("[^0-9+]", "") : "";
+        this.selfPhone = ChatRepository.cleanPhone(selfPhone);
         this.listener = listener;
     }
 
@@ -51,13 +51,13 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
     public void onBindViewHolder(@NonNull ChatPreviewViewHolder holder, int position) {
         Message message = chatList.get(position);
 
-        String cleanSender = message.getSenderPhone() != null ? message.getSenderPhone().replaceAll("[^0-9+]", "") : "";
+        String cleanSender = ChatRepository.cleanPhone(message.getSenderPhone());
         String targetPhone = cleanSender.equals(selfPhone) ? message.getReceiverPhone() : message.getSenderPhone();
 
         String contactName = ContactRepository.getInstance(context).findContactByNumber(targetPhone);
-        String displayName = (contactName != null && !contactName.isEmpty()) ? contactName : targetPhone;
+        String displayName = (contactName != null && !contactName.trim().isEmpty()) ? contactName : targetPhone;
 
-        holder.textName.setText(displayName != null ? displayName : "Unknown");
+        holder.textName.setText(displayName != null && !displayName.isEmpty() ? displayName : "Unknown");
         holder.textLastMessage.setText(message.getText());
 
         long diffDays = (System.currentTimeMillis() - message.getTimestamp()) / (1000 * 60 * 60 * 24);

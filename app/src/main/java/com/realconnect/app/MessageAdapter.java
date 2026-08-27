@@ -22,7 +22,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
 
     public MessageAdapter(String selfPhone) {
-        this.selfPhone = selfPhone != null ? selfPhone.replaceAll("[^0-9+]", "") : "";
+        this.selfPhone = ChatRepository.cleanPhone(selfPhone);
     }
 
     public void setMessages(List<Message> messages) {
@@ -47,7 +47,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public int getItemViewType(int position) {
         Message message = messageList.get(position);
-        String sender = message.getSenderPhone() != null ? message.getSenderPhone().replaceAll("[^0-9+]", "") : "";
+        String sender = ChatRepository.cleanPhone(message.getSenderPhone());
         if (sender.equals(selfPhone)) {
             return VIEW_TYPE_SENT;
         } else {

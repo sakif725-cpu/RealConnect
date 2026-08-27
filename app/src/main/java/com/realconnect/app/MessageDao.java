@@ -18,7 +18,7 @@ public interface MessageDao {
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestamp ASC")
     List<Message> getMessagesForChat(String chatId);
 
-    @Query("SELECT * FROM messages WHERE id IN (SELECT id FROM (SELECT id, MAX(timestamp) FROM messages GROUP BY chatId)) ORDER BY timestamp DESC")
+    @Query("SELECT m.* FROM messages m INNER JOIN (SELECT chatId, MAX(timestamp) AS max_time FROM messages GROUP BY chatId) latest ON m.chatId = latest.chatId AND m.timestamp = latest.max_time ORDER BY m.timestamp DESC")
     List<Message> getRecentChats();
 
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND receiverPhone = :selfPhone")

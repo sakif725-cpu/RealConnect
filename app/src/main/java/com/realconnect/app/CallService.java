@@ -24,8 +24,11 @@ public class CallService extends Service {
     private static final String TAG = "CallService";
     public static final String CHANNEL_SERVICE = "realconnect_service_channel_v1";
     public static final String CHANNEL_CALLS = "realconnect_incoming_calls_channel_v3";
+    public static final String CHANNEL_MESSAGES = "realconnect_messages_channel_v1";
+
     public static final int SERVICE_NOTIFICATION_ID = 1001;
     public static final int INCOMING_CALL_NOTIFICATION_ID = 2002;
+    public static final int MESSAGE_NOTIFICATION_BASE_ID = 3000;
 
     private static CallService instance;
     private SignalingClient signalingClient;
@@ -68,6 +71,7 @@ public class CallService extends Service {
         createNotificationChannels();
         startForeground(SERVICE_NOTIFICATION_ID, createServiceNotification());
         setupSignaling();
+        setupMessageInbox();
     }
 
     @Override
@@ -76,6 +80,7 @@ public class CallService extends Service {
         if (!isListeningPaused) {
             setupSignaling();
         }
+        setupMessageInbox();
         return START_STICKY;
     }
 
@@ -90,7 +95,7 @@ public class CallService extends Service {
                     "RealConnect Background Service",
                     NotificationManager.IMPORTANCE_LOW
             );
-            serviceChannel.setDescription("Keeps RealConnect active for incoming calls in background");
+            serviceChannel.setDescription("Keeps RealConnect active for incoming calls & messages");
             serviceChannel.setShowBadge(false);
             manager.createNotificationChannel(serviceChannel);
 
@@ -112,8 +117,18 @@ public class CallService extends Service {
                     .build();
             callChannel.setSound(ringtoneUri, audioAttributes);
             callChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-
             manager.createNotificationChannel(callChannel);
+
+            // Messages Channel
+            NotificationChannel messageChannel = new NotificationChannel(
+                    CHANNEL_MESSAGES,
+                    "Incoming Messages",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            messageChannel.setDescription("Notifications for incoming messages");
+            messageChannel.enableLights(true);
+            messageChannel.enableVibration(true);
+            manager.createNotificationChannel(messageChannel);
         }
     }
 
@@ -126,7 +141,7 @@ public class CallService extends Service {
 
         return new NotificationCompat.Builder(this, CHANNEL_SERVICE)
                 .setContentTitle("RealConnect Active")
-                .setContentText("Ready for secure calls")
+                .setContentText("Ready for secure calls & messages")
                 .setSmallIcon(R.drawable.ic_call)
                 .setContentIntent(pendingIntent)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -165,8 +180,16 @@ public class CallService extends Service {
         });
     }
 
+    private void setupMessageInbox() {
+        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+        String selfPhone = prefs.getString("phone", null);
+
+        if (selfPhone != null && !selfPhone.trim().isEmpty()) {
+            ChatRepository.getInstance(this).startListeningToUserInbox(selfPhone, this::showIncomingMessageNotification);
+        }
+    }
+
     private void showIncomingCall(String callerPhone, String callerName, boolean isSpam, String sdpOffer) {
-        // Wake device screen up
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
@@ -174,7 +197,7 @@ public class CallService extends Service {
                         PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
                         "RealConnect:IncomingCallWakeLock"
                 );
-                wl.acquire(10000); // 10 seconds
+                wl.acquire(10000);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error acquiring WakeLock", e);
@@ -221,11 +244,41 @@ public class CallService extends Service {
             notificationManager.notify(INCOMING_CALL_NOTIFICATION_ID, builder.build());
         }
 
-        // Direct Full Screen Activity Launch
         try {
             startActivity(callIntent);
         } catch (Exception e) {
             Log.e(TAG, "Error starting CallingActivity from service", e);
+        }
+    }
+
+    private void showIncomingMessageNotification(Message message) {
+        String senderPhone = message.getSenderPhone();
+        String contactName = ContactRepository.getInstance(this).findContactByNumber(senderPhone);
+        String displayName = (contactName != null && !contactName.isEmpty()) ? contactName : senderPhone;
+
+        Intent chatIntent = new Intent(this, ChatActivity.class);
+        chatIntent.putExtra("CONTACT_PHONE", senderPhone);
+        chatIntent.putExtra("CONTACT_NAME", displayName);
+        chatIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (senderPhone != null ? senderPhone.hashCode() : 0),
+                chatIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+        );
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+                .setSmallIcon(R.drawable.ic_chat)
+                .setContentTitle(displayName)
+                .setContentText(message.getText())
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(MESSAGE_NOTIFICATION_BASE_ID + (senderPhone != null ? Math.abs(senderPhone.hashCode() % 1000) : 0), builder.build());
         }
     }
 

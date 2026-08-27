@@ -4,9 +4,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,6 +24,7 @@ public class ChatsFragment extends Fragment {
     private ChatPreviewAdapter adapter;
     private View layoutEmpty;
     private String selfPhone;
+    private ChatRepository.OnMessageReceivedListener messageListener;
 
     @Nullable
     @Override
@@ -43,7 +46,14 @@ public class ChatsFragment extends Fragment {
         recyclerView.setAdapter(adapter);
 
         FloatingActionButton btnNewChat = view.findViewById(R.id.btn_new_chat);
-        btnNewChat.setOnClickListener(v -> showContactPickerDialog());
+        btnNewChat.setOnClickListener(v -> showNewChatOptions());
+
+        messageListener = message -> {
+            if (isAdded() && getActivity() != null) {
+                getActivity().runOnUiThread(this::loadRecentChats);
+            }
+        };
+        ChatRepository.getInstance(requireContext()).addGlobalListener(messageListener);
 
         return view;
     }
@@ -54,7 +64,16 @@ public class ChatsFragment extends Fragment {
         loadRecentChats();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (messageListener != null && getContext() != null) {
+            ChatRepository.getInstance(requireContext()).removeGlobalListener(messageListener);
+        }
+    }
+
     private void loadRecentChats() {
+        if (!isAdded() || getContext() == null) return;
         List<Message> recentChats = ChatRepository.getInstance(requireContext()).getRecentChats();
         if (recentChats == null || recentChats.isEmpty()) {
             layoutEmpty.setVisibility(View.VISIBLE);
@@ -65,10 +84,46 @@ public class ChatsFragment extends Fragment {
         }
     }
 
+    private void showNewChatOptions() {
+        String[] options = {"Select from Contacts", "Enter Phone Number"};
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Start New Chat")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showContactPickerDialog();
+                    } else {
+                        showDirectNumberDialog();
+                    }
+                })
+                .show();
+    }
+
+    private void showDirectNumberDialog() {
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_contact, null);
+        EditText editName = dialogView.findViewById(R.id.edit_name);
+        EditText editPhone = dialogView.findViewById(R.id.edit_phone);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("New Conversation")
+                .setView(dialogView)
+                .setPositiveButton("Chat", (dialog, which) -> {
+                    String name = editName.getText().toString().trim();
+                    String phone = editPhone.getText().toString().trim();
+                    if (!TextUtils.isEmpty(phone)) {
+                        openChatActivity(name, phone);
+                    } else {
+                        Toast.makeText(getContext(), "Enter a phone number", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void showContactPickerDialog() {
         List<Contact> contacts = ContactRepository.getInstance(requireContext()).getContacts();
         if (contacts.isEmpty()) {
-            Toast.makeText(getContext(), "No contacts found. Add contacts first.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "No contacts found. Use 'Enter Phone Number' instead.", Toast.LENGTH_SHORT).show();
+            showDirectNumberDialog();
             return;
         }
 
