@@ -3,19 +3,31 @@ package com.realconnect.app;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import org.webrtc.SessionDescription;
 import java.util.List;
 
@@ -74,6 +86,22 @@ public class ChatActivity extends AppCompatActivity {
         editInput = findViewById(R.id.edit_message_input);
         recyclerView = findViewById(R.id.recycler_messages);
 
+        View chatHeader = findViewById(R.id.chat_header);
+        ViewCompat.setOnApplyWindowInsetsListener(chatHeader, (v, insets) -> {
+            Insets statusBarInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout());
+            int topPadding = statusBarInsets.top > 0 ? statusBarInsets.top : (int) (24 * getResources().getDisplayMetrics().density);
+            v.setPadding(
+                    v.getPaddingLeft(),
+                    topPadding + (int) (8 * getResources().getDisplayMetrics().density),
+                    v.getPaddingRight(),
+                    (int) (12 * getResources().getDisplayMetrics().density)
+            );
+            return insets;
+        });
+
+        ImageView imgAvatar = findViewById(R.id.img_chat_header_avatar);
+        loadHeaderAvatar(imgAvatar, targetPhone, targetName);
+
         textName.setText(targetName != null && !targetName.isEmpty() ? targetName : targetPhone);
         textPhone.setText(targetPhone);
 
@@ -102,6 +130,49 @@ public class ChatActivity extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private void loadHeaderAvatar(ImageView imgAvatar, String phone, String name) {
+        if (imgAvatar == null) return;
+
+        String displayName = (name != null && !name.trim().isEmpty()) ? name : (phone != null ? phone : "?");
+        Bitmap initialAvatar = ImageUtils.createAvatarWithInitial(displayName, 120, Color.parseColor("#E2E8F0"), Color.parseColor("#0F172A"));
+        imgAvatar.setPadding(0, 0, 0, 0);
+        imgAvatar.setImageTintList(null);
+        imgAvatar.setColorFilter(null);
+        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        imgAvatar.setImageBitmap(initialAvatar);
+
+        String cleanTarget = ChatRepository.cleanPhone(phone);
+        if (!cleanTarget.isEmpty()) {
+            FirebaseDatabase.getInstance().getReference("users")
+                    .child(cleanTarget)
+                    .child("profileImageBase64")
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
+                            try {
+                                if (isFinishing() || isDestroyed()) return;
+                                String base64 = snapshot.getValue(String.class);
+                                if (base64 != null && !base64.trim().isEmpty()) {
+                                    Bitmap photo = ImageUtils.base64ToBitmap(base64);
+                                    if (photo != null) {
+                                        runOnUiThread(() -> {
+                                            imgAvatar.setPadding(0, 0, 0, 0);
+                                            imgAvatar.setImageTintList(null);
+                                            imgAvatar.setColorFilter(null);
+                                            imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                                            imgAvatar.setImageBitmap(photo);
+                                        });
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {}
+                    });
+        }
     }
 
     private void loadLocalHistory() {
