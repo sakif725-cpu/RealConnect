@@ -69,7 +69,7 @@ public class ChatRepository {
         }
     }
 
-    private void notifyGlobalListeners(Message message) {
+    private void notifyGlobalListeners(@Nullable Message message) {
         for (OnMessageReceivedListener listener : globalListeners) {
             try {
                 listener.onNewMessage(message);
@@ -84,21 +84,23 @@ public class ChatRepository {
         String messageId = UUID.randomUUID().toString();
         long timestamp = System.currentTimeMillis();
 
-        Message message = new Message(messageId, chatId, cleanSender, cleanReceiver, text, timestamp, true);
+        // Sender's local copy: marked as read since sender wrote it
+        Message localMessage = new Message(messageId, chatId, cleanSender, cleanReceiver, text, timestamp, true);
+        messageDao.insert(localMessage);
+        notifyGlobalListeners(localMessage);
 
-        // 1. Save locally to Room
-        messageDao.insert(message);
-        notifyGlobalListeners(message);
+        // Remote copy for receiver: isRead = false so receiver device gets unread counter badge!
+        Message remoteMessage = new Message(messageId, chatId, cleanSender, cleanReceiver, text, timestamp, false);
 
         // 2. Sync to Firebase chat thread
-        dbChats.child(chatId).child("messages").child(messageId).setValue(message)
+        dbChats.child(chatId).child("messages").child(messageId).setValue(remoteMessage)
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to sync message to thread", e));
 
         // 3. Deliver to receiver's user_inbox (receives from ANY number, even unsaved!)
-        dbInbox.child(cleanReceiver).child(messageId).setValue(message)
+        dbInbox.child(cleanReceiver).child(messageId).setValue(remoteMessage)
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to deliver to user_inbox", e));
 
-        return message;
+        return localMessage;
     }
 
     public List<Message> getLocalMessages(String chatId) {
@@ -142,6 +144,7 @@ public class ChatRepository {
                 try {
                     Message message = snapshot.getValue(Message.class);
                     if (message != null) {
+                        // Mark as unread on receiver device
                         message.setRead(false);
                         messageDao.insert(message);
 
