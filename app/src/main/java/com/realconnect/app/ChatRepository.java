@@ -27,6 +27,7 @@ public class ChatRepository {
     private final List<OnMessageReceivedListener> globalListeners = new CopyOnWriteArrayList<>();
     private ChildEventListener userInboxListener;
     private String currentListeningPhone = null;
+    private OnMessageReceivedListener backgroundNotificationCallback = null;
 
     public interface OnMessageReceivedListener {
         void onNewMessage(Message message);
@@ -48,7 +49,11 @@ public class ChatRepository {
 
     public static String cleanPhone(String phone) {
         if (phone == null) return "";
-        return phone.replaceAll("[^0-9]", "");
+        String digits = phone.replaceAll("[^0-9]", "");
+        if (digits.length() >= 10) {
+            return digits.substring(digits.length() - 10);
+        }
+        return digits;
     }
 
     public static String getChatId(String phoneA, String phoneB) {
@@ -131,8 +136,12 @@ public class ChatRepository {
         String cleanSelf = cleanPhone(selfPhone);
         if (cleanSelf.isEmpty()) return;
 
+        if (notificationCallback != null) {
+            this.backgroundNotificationCallback = notificationCallback;
+        }
+
         if (cleanSelf.equals(currentListeningPhone) && userInboxListener != null) {
-            return; // Already listening
+            return; // Already listening to this phone
         }
 
         stopListeningToUserInbox();
@@ -152,8 +161,8 @@ public class ChatRepository {
                         snapshot.getRef().removeValue();
 
                         notifyGlobalListeners(message);
-                        if (notificationCallback != null) {
-                            notificationCallback.onNewMessage(message);
+                        if (backgroundNotificationCallback != null) {
+                            backgroundNotificationCallback.onNewMessage(message);
                         }
                     }
                 } catch (Exception e) {

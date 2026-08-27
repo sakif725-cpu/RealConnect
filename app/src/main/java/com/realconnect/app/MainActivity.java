@@ -124,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
         String selfPhone = prefs.getString("phone", null);
         if (selfPhone != null && !selfPhone.trim().isEmpty()) {
             CallService.start(this);
+            ChatRepository.getInstance(this).startListeningToUserInbox(selfPhone, null);
         }
     }
 
