@@ -45,6 +45,11 @@ public class ContactsFragment extends Fragment {
             }
 
             @Override
+            public void onMessageAction(Contact contact) {
+                initiateChat(contact);
+            }
+
+            @Override
             public void onContactLongClick(Contact contact) {
                 showContactOptionsDialog(contact);
             }
@@ -74,6 +79,13 @@ public class ContactsFragment extends Fragment {
 
     private void initiateCall(Contact contact) {
         Intent intent = new Intent(getActivity(), CallingActivity.class);
+        intent.putExtra("CONTACT_NAME", contact.getName());
+        intent.putExtra("CONTACT_PHONE", contact.getPhoneNumber());
+        startActivity(intent);
+    }
+
+    private void initiateChat(Contact contact) {
+        Intent intent = new Intent(getActivity(), ChatActivity.class);
         intent.putExtra("CONTACT_NAME", contact.getName());
         intent.putExtra("CONTACT_PHONE", contact.getPhoneNumber());
         startActivity(intent);

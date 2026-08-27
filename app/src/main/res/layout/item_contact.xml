@@ -25,10 +25,11 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
         android:fontFamily="sans-serif-medium"
         android:textColor="@color/textColorPrimary"
         android:textSize="16sp"
-        app:layout_constraintEnd_toStartOf="@+id/image_call_action"
+        app:layout_constraintEnd_toStartOf="@+id/image_message_action"
         app:layout_constraintStart_toEndOf="@id/image_avatar"
         app:layout_constraintTop_toTopOf="@id/image_avatar"
         app:layout_constraintVertical_chainStyle="packed" />
@@ -45,6 +46,20 @@
         app:layout_constraintTop_toBottomOf="@id/text_contact_name" />
 
     <ImageView
+        android:id="@+id/image_message_action"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="4dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp"
+        android:src="@drawable/ic_chat"
+        android:contentDescription="Chat"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/image_call_action"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="#60A5FA" />
+
+    <ImageView
         android:id="@+id/image_call_action"
         android:layout_width="40dp"
         android:layout_height="40dp"
@@ -55,7 +70,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/textColorSecondary" />
+        app:tint="#22C55E" />
 
     <View
         android:layout_width="0dp"

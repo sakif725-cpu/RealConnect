@@ -42,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
 
             if (itemId == R.id.nav_contacts) {
                 selectedFragment = new ContactsFragment();
+            } else if (itemId == R.id.nav_chats) {
+                selectedFragment = new ChatsFragment();
             } else if (itemId == R.id.nav_call) {
                 selectedFragment = new CallFragment();
             } else if (itemId == R.id.nav_profile) {

@@ -21,6 +21,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
     public interface OnContactActionListener {
         void onContactSelected(Contact contact);
         void onCallAction(Contact contact);
+        void onMessageAction(Contact contact);
         void onContactLongClick(Contact contact);
     }
 
@@ -45,6 +46,9 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
         
         holder.itemView.setOnClickListener(v -> listener.onContactSelected(contact));
         holder.callAction.setOnClickListener(v -> listener.onCallAction(contact));
+        if (holder.messageAction != null) {
+            holder.messageAction.setOnClickListener(v -> listener.onMessageAction(contact));
+        }
         
         holder.itemView.setOnLongClickListener(v -> {
             listener.onContactLongClick(contact);
@@ -107,6 +111,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
         TextView nameText;
         TextView phoneText;
         ImageView callAction;
+        ImageView messageAction;
         ImageView avatarImage;
 
         ViewHolder(View itemView) {
@@ -114,6 +119,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
             nameText = itemView.findViewById(R.id.text_contact_name);
             phoneText = itemView.findViewById(R.id.text_contact_phone);
             callAction = itemView.findViewById(R.id.image_call_action);
+            messageAction = itemView.findViewById(R.id.image_message_action);
             avatarImage = itemView.findViewById(R.id.image_avatar);
         }
     }

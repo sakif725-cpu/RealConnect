@@ -32,6 +32,11 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.RealConnect" />
 
+        <activity
+            android:name=".ChatActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.RealConnect" />
+
     </application>
 
 </manifest>

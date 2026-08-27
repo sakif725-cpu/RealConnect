@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="14dp">
+
+    <!-- Avatar -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_chat_avatar"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        app:cardBackgroundColor="#1E293B"
+        app:cardCornerRadius="26dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#334155"
+        app:strokeWidth="1dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/img_chat_avatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="12dp"
+            android:src="@drawable/ic_contacts"
+            app:tint="#94A3B8" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Name / Phone -->
+    <TextView
+        android:id="@+id/text_chat_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="John Doe"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@id/text_chat_time"
+        app:layout_constraintStart_toEndOf="@id/card_chat_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_chat_avatar" />
+
+    <!-- Last Message Snippet -->
+    <TextView
+        android:id="@+id/text_chat_last_message"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Hey, let's connect on RealConnect!"
+        android:textColor="#94A3B8"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toStartOf="@id/badge_unread"
+        app:layout_constraintStart_toEndOf="@id/card_chat_avatar"
+        app:layout_constraintTop_toBottomOf="@id/text_chat_name" />
+
+    <!-- Time -->
+    <TextView
+        android:id="@+id/text_chat_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="12:45 PM"
+        android:textColor="#64748B"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_chat_name" />
+
+    <!-- Unread Dot Badge -->
+    <View
+        android:id="@+id/badge_unread"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        android:background="@drawable/bg_avatar"
+        android:backgroundTint="#2563EB"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/text_chat_last_message"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_chat_last_message" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="14dp"
+        android:background="#1E293B"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/text_chat_name" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
