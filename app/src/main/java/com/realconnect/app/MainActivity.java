@@ -89,33 +89,34 @@ public class MainActivity extends AppCompatActivity {
 
     public void updateBadges() {
         if (bottomNav == null) return;
+        try {
+            SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+            String selfPhone = prefs.getString("phone", "");
 
-        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
-        String selfPhone = prefs.getString("phone", "");
+            // 1. Unread Messages Badge on Chats Tab
+            int unreadMessages = ChatRepository.getInstance(this).getUnreadMessageCount(selfPhone);
+            if (unreadMessages > 0) {
+                BadgeDrawable chatBadge = bottomNav.getOrCreateBadge(R.id.nav_chats);
+                chatBadge.setVisible(true);
+                chatBadge.setNumber(unreadMessages);
+                chatBadge.setBackgroundColor(Color.parseColor("#0EA5E9"));
+                chatBadge.setBadgeTextColor(Color.WHITE);
+            } else {
+                bottomNav.removeBadge(R.id.nav_chats);
+            }
 
-        // 1. Unread Messages Badge on Chats Tab
-        int unreadMessages = ChatRepository.getInstance(this).getUnreadMessageCount(selfPhone);
-        if (unreadMessages > 0) {
-            BadgeDrawable chatBadge = bottomNav.getOrCreateBadge(R.id.nav_chats);
-            chatBadge.setVisible(true);
-            chatBadge.setNumber(unreadMessages);
-            chatBadge.setBackgroundColor(Color.parseColor("#0EA5E9"));
-            chatBadge.setBadgeTextColor(Color.WHITE);
-        } else {
-            bottomNav.removeBadge(R.id.nav_chats);
-        }
-
-        // 2. Missed Calls Badge on Call Tab
-        int unreadMissedCalls = CallLogRepository.getInstance(this).getUnreadMissedCallsCount();
-        if (unreadMissedCalls > 0) {
-            BadgeDrawable callBadge = bottomNav.getOrCreateBadge(R.id.nav_call);
-            callBadge.setVisible(true);
-            callBadge.setNumber(unreadMissedCalls);
-            callBadge.setBackgroundColor(Color.parseColor("#EF4444"));
-            callBadge.setBadgeTextColor(Color.WHITE);
-        } else {
-            bottomNav.removeBadge(R.id.nav_call);
-        }
+            // 2. Missed Calls Badge on Call Tab
+            int unreadMissedCalls = CallLogRepository.getInstance(this).getUnreadMissedCallsCount();
+            if (unreadMissedCalls > 0) {
+                BadgeDrawable callBadge = bottomNav.getOrCreateBadge(R.id.nav_call);
+                callBadge.setVisible(true);
+                callBadge.setNumber(unreadMissedCalls);
+                callBadge.setBackgroundColor(Color.parseColor("#EF4444"));
+                callBadge.setBadgeTextColor(Color.WHITE);
+            } else {
+                bottomNav.removeBadge(R.id.nav_call);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void startCallServiceIfRegistered() {
