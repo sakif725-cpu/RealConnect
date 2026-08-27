@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
@@ -15,11 +16,15 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
+import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
+    private BottomNavigationView bottomNav;
+    private ChatRepository.OnMessageReceivedListener messageListener;
+    private CallLogRepository.OnCallLogsChangedListener callLogsListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment selectedFragment = null;
             int itemId = item.getItemId();
@@ -45,6 +50,9 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = new ChatsFragment();
             } else if (itemId == R.id.nav_call) {
                 selectedFragment = new CallFragment();
+                // Mark missed calls as read when opening Call tab
+                CallLogRepository.getInstance(this).markMissedCallsAsRead();
+                updateBadges();
             } else if (itemId == R.id.nav_profile) {
                 selectedFragment = new ProfileFragment();
             }
@@ -59,14 +67,55 @@ public class MainActivity extends AppCompatActivity {
             bottomNav.setSelectedItemId(R.id.nav_contacts);
         }
 
+        setupBadgeListeners();
         checkNotificationPermission();
         startCallServiceIfRegistered();
+    }
+
+    private void setupBadgeListeners() {
+        messageListener = message -> runOnUiThread(this::updateBadges);
+        ChatRepository.getInstance(this).addGlobalListener(messageListener);
+
+        callLogsListener = () -> runOnUiThread(this::updateBadges);
+        CallLogRepository.getInstance(this).addListener(callLogsListener);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         startCallServiceIfRegistered();
+        updateBadges();
+    }
+
+    public void updateBadges() {
+        if (bottomNav == null) return;
+
+        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+        String selfPhone = prefs.getString("phone", "");
+
+        // 1. Unread Messages Badge on Chats Tab
+        int unreadMessages = ChatRepository.getInstance(this).getUnreadMessageCount(selfPhone);
+        if (unreadMessages > 0) {
+            BadgeDrawable chatBadge = bottomNav.getOrCreateBadge(R.id.nav_chats);
+            chatBadge.setVisible(true);
+            chatBadge.setNumber(unreadMessages);
+            chatBadge.setBackgroundColor(Color.parseColor("#0EA5E9"));
+            chatBadge.setBadgeTextColor(Color.WHITE);
+        } else {
+            bottomNav.removeBadge(R.id.nav_chats);
+        }
+
+        // 2. Missed Calls Badge on Call Tab
+        int unreadMissedCalls = CallLogRepository.getInstance(this).getUnreadMissedCallsCount();
+        if (unreadMissedCalls > 0) {
+            BadgeDrawable callBadge = bottomNav.getOrCreateBadge(R.id.nav_call);
+            callBadge.setVisible(true);
+            callBadge.setNumber(unreadMissedCalls);
+            callBadge.setBackgroundColor(Color.parseColor("#EF4444"));
+            callBadge.setBadgeTextColor(Color.WHITE);
+        } else {
+            bottomNav.removeBadge(R.id.nav_call);
+        }
     }
 
     private void startCallServiceIfRegistered() {
@@ -90,5 +139,16 @@ public class MainActivity extends AppCompatActivity {
                 .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                 .replace(R.id.fragment_container, fragment)
                 .commit();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (messageListener != null) {
+            ChatRepository.getInstance(this).removeGlobalListener(messageListener);
+        }
+        if (callLogsListener != null) {
+            CallLogRepository.getInstance(this).removeListener(callLogsListener);
+        }
     }
 }

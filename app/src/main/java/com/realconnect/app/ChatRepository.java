@@ -109,9 +109,15 @@ public class ChatRepository {
         return messageDao.getRecentChats();
     }
 
+    public int getUnreadMessageCount(String selfPhone) {
+        String cleanSelf = cleanPhone(selfPhone);
+        return messageDao.getUnreadMessageCount(cleanSelf);
+    }
+
     public void markAsRead(String chatId, String selfPhone) {
         String cleanSelf = cleanPhone(selfPhone);
         messageDao.markChatAsRead(chatId, cleanSelf);
+        notifyGlobalListeners(null);
     }
 
     public void startListeningToUserInbox(String selfPhone, @Nullable OnMessageReceivedListener notificationCallback) {

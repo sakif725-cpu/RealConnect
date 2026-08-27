@@ -19,6 +19,7 @@ public class CallLogEntry {
     private long timestamp;
     private int durationSeconds;
     private boolean isSpam;
+    private boolean isRead;
 
     public CallLogEntry() {}
 
@@ -30,6 +31,18 @@ public class CallLogEntry {
         this.timestamp = timestamp;
         this.durationSeconds = durationSeconds;
         this.isSpam = isSpam;
+        this.isRead = (callType != TYPE_MISSED);
+    }
+
+    @Ignore
+    public CallLogEntry(String phoneNumber, String contactName, int callType, long timestamp, int durationSeconds, boolean isSpam, boolean isRead) {
+        this.phoneNumber = phoneNumber;
+        this.contactName = contactName;
+        this.callType = callType;
+        this.timestamp = timestamp;
+        this.durationSeconds = durationSeconds;
+        this.isSpam = isSpam;
+        this.isRead = isRead;
     }
 
     public int getId() { return id; }
@@ -52,4 +65,7 @@ public class CallLogEntry {
 
     public boolean isSpam() { return isSpam; }
     public void setSpam(boolean spam) { isSpam = spam; }
+
+    public boolean isRead() { return isRead; }
+    public void setRead(boolean read) { isRead = read; }
 }

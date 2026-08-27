@@ -21,7 +21,7 @@ public class CallLogRepository {
 
     public static synchronized CallLogRepository getInstance(Context context) {
         if (instance == null) {
-            instance = new CallLogRepository(context);
+            instance = new CallLogRepository(context.getApplicationContext());
         }
         return instance;
     }
@@ -48,6 +48,15 @@ public class CallLogRepository {
 
     public List<CallLogEntry> getCallLogs() {
         return callLogDao.getAllCallLogs();
+    }
+
+    public int getUnreadMissedCallsCount() {
+        return callLogDao.getUnreadMissedCallsCount();
+    }
+
+    public void markMissedCallsAsRead() {
+        callLogDao.markMissedCallsAsRead();
+        notifyListeners();
     }
 
     public void addCallLog(CallLogEntry entry) {
