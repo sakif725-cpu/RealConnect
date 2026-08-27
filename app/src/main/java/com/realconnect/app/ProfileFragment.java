@@ -102,7 +102,10 @@ public class ProfileFragment extends Fragment {
 
         setupOption(view.findViewById(R.id.option_account), R.drawable.ic_profile, R.string.option_account, v -> showEditProfileDialog());
         setupOption(view.findViewById(R.id.option_notifications), R.drawable.ic_notifications, R.string.option_notifications, null);
-        setupOption(view.findViewById(R.id.option_privacy), R.drawable.ic_privacy, R.string.option_privacy, null);
+        setupOption(view.findViewById(R.id.option_privacy), R.drawable.ic_privacy, R.string.option_privacy, v -> {
+            Intent intent = new Intent(getActivity(), PrivacyActivity.class);
+            startActivity(intent);
+        });
 
         view.findViewById(R.id.btn_logout).setOnClickListener(v -> {
             new androidx.appcompat.app.AlertDialog.Builder(requireContext())

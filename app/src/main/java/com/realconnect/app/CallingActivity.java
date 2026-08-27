@@ -478,8 +478,25 @@ public class CallingActivity extends AppCompatActivity {
                 audioManager.setSpeakerphoneOn(isSelected);
             } else if (labelRes == R.string.label_ai_mode) {
                 performVoiceAiAnalysis();
+            } else if (labelRes == R.string.label_record) {
+                toggleCallRecording(isSelected);
             }
         });
+    }
+
+    private void toggleCallRecording(boolean start) {
+        if (start) {
+            String callerName = getIntent().getStringExtra("CONTACT_NAME");
+            boolean success = CallRecordingHelper.getInstance().startRecording(this, targetPhone, callerName);
+            if (success) {
+                Toast.makeText(this, "Call recording started", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Unable to start recording", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            CallRecordingHelper.getInstance().stopRecording();
+            Toast.makeText(this, "Call recording saved", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void runTimer() {
@@ -510,6 +527,7 @@ public class CallingActivity extends AppCompatActivity {
         super.onDestroy();
         running = false;
         stopRinging();
+        CallRecordingHelper.getInstance().stopRecording();
         saveCallLogEntry();
         if (signalingClient != null) {
             signalingClient.endCall(targetPhone);
