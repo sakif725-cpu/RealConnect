@@ -89,12 +89,12 @@ public class ChatActivity extends AppCompatActivity {
         View chatHeader = findViewById(R.id.chat_header);
         ViewCompat.setOnApplyWindowInsetsListener(chatHeader, (v, insets) -> {
             Insets statusBarInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout());
-            int topPadding = statusBarInsets.top > 0 ? statusBarInsets.top : (int) (24 * getResources().getDisplayMetrics().density);
+            int topOffset = statusBarInsets.top > 0 ? statusBarInsets.top : (int) (16 * getResources().getDisplayMetrics().density);
             v.setPadding(
                     v.getPaddingLeft(),
-                    topPadding + (int) (8 * getResources().getDisplayMetrics().density),
+                    topOffset + (int) (4 * getResources().getDisplayMetrics().density),
                     v.getPaddingRight(),
-                    (int) (12 * getResources().getDisplayMetrics().density)
+                    (int) (10 * getResources().getDisplayMetrics().density)
             );
             return insets;
         });
