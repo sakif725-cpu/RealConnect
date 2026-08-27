@@ -22,6 +22,7 @@ public class ContactsFragment extends Fragment {
 
     private ContactAdapter adapter;
     private EditText editSearch;
+    private ContactRepository.OnContactsChangedListener contactsListener;
 
     @Nullable
     @Override
@@ -65,7 +66,9 @@ public class ContactsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                adapter.getFilter().filter(s);
+                if (adapter != null) {
+                    adapter.getFilter().filter(s);
+                }
             }
 
             @Override
@@ -74,7 +77,29 @@ public class ContactsFragment extends Fragment {
 
         view.findViewById(R.id.btn_add_contact).setOnClickListener(v -> showAddContactDialog(null));
 
+        // Reactive Real-Time Listener: Instantly updates contact list without needing tab switch
+        contactsListener = () -> {
+            if (isAdded() && getActivity() != null) {
+                getActivity().runOnUiThread(this::refreshContacts);
+            }
+        };
+        ContactRepository.getInstance(requireContext()).addListener(contactsListener);
+
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        refreshContacts();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (contactsListener != null && getContext() != null) {
+            ContactRepository.getInstance(requireContext()).removeListener(contactsListener);
+        }
     }
 
     private void initiateCall(Contact contact) {
@@ -164,9 +189,9 @@ public class ContactsFragment extends Fragment {
 
                     if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
                         ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
-                        
-                        if (editSearch != null) editSearch.setText("");
-                        
+                        if (editSearch != null && !TextUtils.isEmpty(editSearch.getText())) {
+                            editSearch.setText("");
+                        }
                         refreshContacts();
                         Toast.makeText(getContext(), "Contact added: " + name, Toast.LENGTH_SHORT).show();
                     } else {
@@ -178,7 +203,11 @@ public class ContactsFragment extends Fragment {
     }
 
     private void refreshContacts() {
+        if (!isAdded() || getContext() == null || adapter == null) return;
         List<Contact> updatedList = ContactRepository.getInstance(requireContext()).getContacts();
         adapter.setContacts(updatedList);
+        if (editSearch != null && !TextUtils.isEmpty(editSearch.getText())) {
+            adapter.getFilter().filter(editSearch.getText());
+        }
     }
 }

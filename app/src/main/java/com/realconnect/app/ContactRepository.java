@@ -2,10 +2,16 @@ package com.realconnect.app;
 
 import android.content.Context;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ContactRepository {
+    public interface OnContactsChangedListener {
+        void onContactsChanged();
+    }
+
     private static ContactRepository instance;
     private final ContactDao contactDao;
+    private final List<OnContactsChangedListener> listeners = new CopyOnWriteArrayList<>();
 
     private ContactRepository(Context context) {
         AppDatabase db = AppDatabase.getInstance(context);
@@ -26,28 +32,48 @@ public class ContactRepository {
         return instance;
     }
 
+    public void addListener(OnContactsChangedListener listener) {
+        if (listener != null && !listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+
+    public void removeListener(OnContactsChangedListener listener) {
+        if (listener != null) {
+            listeners.remove(listener);
+        }
+    }
+
+    private void notifyListeners() {
+        for (OnContactsChangedListener listener : listeners) {
+            try {
+                listener.onContactsChanged();
+            } catch (Exception ignored) {}
+        }
+    }
+
     public List<Contact> getContacts() {
         return contactDao.getAllContacts();
     }
 
     public void addContact(Contact contact) {
         contactDao.insert(contact);
+        notifyListeners();
     }
 
     public void deleteContact(Contact contact) {
         contactDao.delete(contact);
+        notifyListeners();
     }
 
     public void updateContact(Contact oldContact, Contact newContact) {
-        // Since phoneNumber is the primary key and might change during edit, 
-        // we handle it by deleting the old and inserting the new if keys differ,
-        // or just updating if they are the same.
         if (!oldContact.getPhoneNumber().equals(newContact.getPhoneNumber())) {
             contactDao.delete(oldContact);
             contactDao.insert(newContact);
         } else {
             contactDao.update(newContact);
         }
+        notifyListeners();
     }
 
     public String findContactByNumber(String number) {
