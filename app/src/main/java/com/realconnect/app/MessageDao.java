@@ -21,14 +21,14 @@ public interface MessageDao {
     @Query("SELECT m.* FROM messages m INNER JOIN (SELECT chatId, MAX(timestamp) AS max_time FROM messages GROUP BY chatId) latest ON m.chatId = latest.chatId AND m.timestamp = latest.max_time ORDER BY m.timestamp DESC")
     List<Message> getRecentChats();
 
-    @Query("SELECT COUNT(*) FROM messages WHERE isRead = 0 AND senderPhone != :selfPhone")
-    int getUnreadMessageCount(String selfPhone);
+    @Query("SELECT COUNT(*) FROM messages WHERE isRead = 0")
+    int getUnreadMessageCount();
 
-    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isRead = 0 AND senderPhone != :selfPhone")
-    int getUnreadCountForChat(String chatId, String selfPhone);
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isRead = 0")
+    int getUnreadCountForChat(String chatId);
 
-    @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND senderPhone != :selfPhone")
-    void markChatAsRead(String chatId, String selfPhone);
+    @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND isRead = 0")
+    void markChatAsRead(String chatId);
 
     @Query("DELETE FROM messages WHERE chatId = :chatId")
     void deleteChat(String chatId);

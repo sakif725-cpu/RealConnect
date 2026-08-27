@@ -116,19 +116,29 @@ public class ChatRepository {
         return messageDao.getRecentChats();
     }
 
+    public int getUnreadMessageCount() {
+        return messageDao.getUnreadMessageCount();
+    }
+
     public int getUnreadMessageCount(String selfPhone) {
-        String cleanSelf = cleanPhone(selfPhone);
-        return messageDao.getUnreadMessageCount(cleanSelf);
+        return messageDao.getUnreadMessageCount();
+    }
+
+    public int getUnreadCountForChat(String chatId) {
+        return messageDao.getUnreadCountForChat(chatId);
     }
 
     public int getUnreadCountForChat(String chatId, String selfPhone) {
-        String cleanSelf = cleanPhone(selfPhone);
-        return messageDao.getUnreadCountForChat(chatId, cleanSelf);
+        return messageDao.getUnreadCountForChat(chatId);
+    }
+
+    public void markAsRead(String chatId) {
+        messageDao.markChatAsRead(chatId);
+        notifyGlobalListeners(null);
     }
 
     public void markAsRead(String chatId, String selfPhone) {
-        String cleanSelf = cleanPhone(selfPhone);
-        messageDao.markChatAsRead(chatId, cleanSelf);
+        messageDao.markChatAsRead(chatId);
         notifyGlobalListeners(null);
     }
 

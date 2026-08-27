@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
             String selfPhone = prefs.getString("phone", "");
 
             // 1. Unread Messages Badge on Chats Tab
-            int unreadMessages = ChatRepository.getInstance(this).getUnreadMessageCount(selfPhone);
+            int unreadMessages = ChatRepository.getInstance(this).getUnreadMessageCount();
             if (unreadMessages > 0) {
                 BadgeDrawable chatBadge = bottomNav.getOrCreateBadge(R.id.nav_chats);
                 chatBadge.setVisible(true);

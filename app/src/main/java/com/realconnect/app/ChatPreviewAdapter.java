@@ -70,7 +70,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
         }
 
         // Unread message count badge for this conversation
-        int unreadCount = ChatRepository.getInstance(context).getUnreadCountForChat(message.getChatId(), selfPhone);
+        int unreadCount = ChatRepository.getInstance(context).getUnreadCountForChat(message.getChatId());
         if (unreadCount > 0) {
             holder.badgeUnreadCount.setVisibility(View.VISIBLE);
             holder.badgeUnreadCount.setText(unreadCount > 99 ? "99+" : String.valueOf(unreadCount));
