@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
@@ -14,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import org.webrtc.SessionDescription;
 import java.util.List;
 
 public class ChatActivity extends AppCompatActivity {
@@ -27,6 +30,9 @@ public class ChatActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private EditText editInput;
     private ChatRepository chatRepo;
+
+    private SignalingClient signalingClient;
+    private boolean isProcessingCall = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,8 +137,57 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        isProcessingCall = false;
+        new Handler(Looper.getMainLooper()).postDelayed(this::setupIncomingCallListener, 300);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        destroySignaling();
+    }
+
+    private void destroySignaling() {
+        if (signalingClient != null) {
+            signalingClient.destroy();
+            signalingClient = null;
+        }
+    }
+
+    private void setupIncomingCallListener() {
+        if (selfPhone == null || selfPhone.isEmpty()) return;
+
+        SignalingClient.clearNode(selfPhone);
+        signalingClient = new SignalingClient(selfPhone, new SignalingClient.SignalingInterface() {
+            @Override
+            public void onRemoteOfferReceived(String callerPhone, SessionDescription description) {
+                if (isProcessingCall) return;
+                isProcessingCall = true;
+
+                destroySignaling();
+
+                AiService.checkSpam(callerPhone, isSpam -> {
+                    Intent intent = new Intent(ChatActivity.this, CallingActivity.class);
+                    intent.putExtra("IS_INCOMING", true);
+                    intent.putExtra("IS_SPAM", isSpam);
+                    intent.putExtra("REMOTE_OFFER", description.description);
+                    intent.putExtra("CONTACT_PHONE", callerPhone);
+
+                    String callerName = ContactRepository.getInstance(ChatActivity.this).findContactByNumber(callerPhone);
+                    intent.putExtra("CONTACT_NAME", callerName != null ? callerName : callerPhone);
+
+                    startActivity(intent);
+                });
+            }
+        });
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        destroySignaling();
         if (chatRepo != null && chatId != null) {
             chatRepo.stopListeningForMessages(chatId);
         }
