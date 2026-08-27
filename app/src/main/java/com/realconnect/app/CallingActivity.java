@@ -152,33 +152,65 @@ public class CallingActivity extends AppCompatActivity {
     private void loadCallerAvatar(ImageView imgAvatar, String phone, String name) {
         if (imgAvatar == null) return;
 
-        // 1. Initial placeholder with clean background and initial letter
         String displayName = (name != null && !name.trim().isEmpty()) ? name : (phone != null ? phone : "?");
+        String cleanTarget = ChatRepository.cleanPhone(phone);
+        String cleanSelf = ChatRepository.cleanPhone(selfPhone);
+
+        // 1. Initial placeholder with clean background and initial letter
         Bitmap initialAvatar = ImageUtils.createAvatarWithInitial(displayName, 280, Color.parseColor("#1E293B"), Color.WHITE);
         imgAvatar.setPadding(0, 0, 0, 0);
         imgAvatar.setImageTintList(null);
         imgAvatar.setColorFilter(null);
+        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
         imgAvatar.setImageBitmap(initialAvatar);
 
-        // 2. Fetch profile picture from Firebase Realtime Database
-        String cleanPhone = ChatRepository.cleanPhone(phone);
-        if (!cleanPhone.isEmpty()) {
+        // 2. If self-call or local profile photo exists, display immediately
+        if (cleanTarget.equals(cleanSelf)) {
+            SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+            String imageUriStr = prefs.getString("image_uri", null);
+            if (imageUriStr != null && !imageUriStr.isEmpty()) {
+                try {
+                    Uri uri = Uri.parse(imageUriStr);
+                    imgAvatar.setImageURI(uri);
+                    return;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 3. Fetch remote profile picture from Firebase Realtime Database
+        if (!cleanTarget.isEmpty()) {
             FirebaseDatabase.getInstance().getReference("users")
-                    .child(cleanPhone)
-                    .child("profileImageBase64")
+                    .child(cleanTarget)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot snapshot) {
-                            String base64 = snapshot.getValue(String.class);
-                            if (base64 != null && !base64.trim().isEmpty()) {
-                                Bitmap photo = ImageUtils.base64ToBitmap(base64);
-                                if (photo != null && !isFinishing() && !isDestroyed()) {
-                                    runOnUiThread(() -> {
-                                        imgAvatar.setPadding(0, 0, 0, 0);
-                                        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                                        imgAvatar.setImageBitmap(photo);
-                                    });
-                                }
+                            try {
+                                if (isFinishing() || isDestroyed()) return;
+
+                                String base64 = snapshot.child("profileImageBase64").getValue(String.class);
+                                String remoteName = snapshot.child("name").getValue(String.class);
+
+                                runOnUiThread(() -> {
+                                    if (remoteName != null && !remoteName.trim().isEmpty() && (name == null || name.isEmpty() || name.equals(phone))) {
+                                        TextView textCallerName = findViewById(R.id.text_caller_name);
+                                        if (textCallerName != null) {
+                                            textCallerName.setText(remoteName);
+                                        }
+                                    }
+
+                                    if (base64 != null && !base64.trim().isEmpty()) {
+                                        Bitmap photo = ImageUtils.base64ToBitmap(base64);
+                                        if (photo != null) {
+                                            imgAvatar.setPadding(0, 0, 0, 0);
+                                            imgAvatar.setImageTintList(null);
+                                            imgAvatar.setColorFilter(null);
+                                            imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                                            imgAvatar.setImageBitmap(photo);
+                                        }
+                                    }
+                                });
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error rendering caller avatar", e);
                             }
                         }
 

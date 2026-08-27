@@ -125,7 +125,35 @@ public class MainActivity extends AppCompatActivity {
         if (selfPhone != null && !selfPhone.trim().isEmpty()) {
             CallService.start(this);
             ChatRepository.getInstance(this).startListeningToUserInbox(selfPhone, null);
+            syncProfileToFirebase();
         }
+    }
+
+    private void syncProfileToFirebase() {
+        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+        String selfPhone = prefs.getString("phone", null);
+        String name = prefs.getString("name", null);
+        String imageUriStr = prefs.getString("image_uri", null);
+
+        String cleanPhone = ChatRepository.cleanPhone(selfPhone);
+        if (cleanPhone.isEmpty()) return;
+
+        new Thread(() -> {
+            try {
+                com.google.firebase.database.DatabaseReference userRef =
+                        com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users").child(cleanPhone);
+                if (name != null && !name.trim().isEmpty()) {
+                    userRef.child("name").setValue(name);
+                }
+                if (imageUriStr != null && !imageUriStr.trim().isEmpty()) {
+                    android.net.Uri uri = android.net.Uri.parse(imageUriStr);
+                    String base64 = ImageUtils.uriToBase64(getApplicationContext(), uri, 240);
+                    if (base64 != null && !base64.isEmpty()) {
+                        userRef.child("profileImageBase64").setValue(base64);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void checkNotificationPermission() {
