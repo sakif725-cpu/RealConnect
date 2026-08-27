@@ -2,10 +2,14 @@ package com.realconnect.app;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import java.util.List;
 
 public class PrivacyActivity extends AppCompatActivity {
@@ -16,6 +20,19 @@ public class PrivacyActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_privacy);
+
+        View header = findViewById(R.id.privacy_header);
+        ViewCompat.setOnApplyWindowInsetsListener(header, (v, insets) -> {
+            Insets statusBarInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout());
+            int topOffset = statusBarInsets.top > 0 ? statusBarInsets.top : (int) (16 * getResources().getDisplayMetrics().density);
+            v.setPadding(
+                    v.getPaddingLeft(),
+                    topOffset + (int) (4 * getResources().getDisplayMetrics().density),
+                    v.getPaddingRight(),
+                    (int) (12 * getResources().getDisplayMetrics().density)
+            );
+            return insets;
+        });
 
         ImageButton btnBack = findViewById(R.id.btn_privacy_back);
         btnBack.setOnClickListener(v -> finish());
