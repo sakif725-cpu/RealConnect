@@ -83,7 +83,17 @@ public class ProfileFragment extends Fragment {
         setupOption(view.findViewById(R.id.option_privacy), R.drawable.ic_privacy, R.string.option_privacy, null);
 
         view.findViewById(R.id.btn_logout).setOnClickListener(v -> {
-            Toast.makeText(getContext(), R.string.logout, Toast.LENGTH_SHORT).show();
+            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.logout)
+                    .setMessage("Are you sure you want to log out?")
+                    .setPositiveButton(R.string.logout, (dialog, which) -> {
+                        sharedPreferences.edit().clear().apply();
+                        Intent intent = new Intent(getActivity(), WelcomeActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                    })
+                    .setNegativeButton(R.string.action_cancel, null)
+                    .show();
         });
         
         return view;

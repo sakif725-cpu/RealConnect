@@ -1,6 +1,8 @@
 package com.realconnect.app;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,6 +13,20 @@ public class WelcomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Check if user has already onboarded / logged in with their phone number
+        SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
+        String selfPhone = prefs.getString("phone", null);
+
+        if (selfPhone != null && !selfPhone.trim().isEmpty()) {
+            // Existing user: Skip welcome and go straight to the main app
+            Intent intent = new Intent(WelcomeActivity.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
+        // New user: Show the Welcome screen
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_welcome);
 
