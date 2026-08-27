@@ -96,7 +96,8 @@ public class CallingActivity extends AppCompatActivity {
             startRinging();
             
             if (getIntent().getBooleanExtra("IS_SPAM", false)) {
-                showSpamWarning();
+                String spamReason = getIntent().getStringExtra("SPAM_REASON");
+                showSpamWarning(spamReason);
             }
         } else {
             btnAcceptCall.setVisibility(View.GONE);
@@ -115,8 +116,13 @@ public class CallingActivity extends AppCompatActivity {
         setupSignaling();
     }
 
-    private void showSpamWarning() {
+    private void showSpamWarning(String reason) {
         textSpamWarning.setVisibility(View.VISIBLE);
+        if (reason != null && !reason.trim().isEmpty() && !reason.equalsIgnoreCase("null")) {
+            textSpamWarning.setText("⚠ " + reason.toUpperCase());
+        } else {
+            textSpamWarning.setText("⚠ POSSIBLE SPAM CALL");
+        }
         textAiStatus.setText("AI: SPAM DETECTED");
         textAiStatus.setTextColor(Color.parseColor("#EF4444"));
     }

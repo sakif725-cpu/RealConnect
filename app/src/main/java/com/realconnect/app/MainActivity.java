@@ -100,10 +100,11 @@ public class MainActivity extends AppCompatActivity {
                     destroySignaling();
 
                     // AI Spam Detection: Check number before showing call UI
-                    AiService.checkSpam(callerPhone, isSpam -> {
+                    AiService.checkSpam(callerPhone, spamResponse -> {
                         Intent intent = new Intent(MainActivity.this, CallingActivity.class);
                         intent.putExtra("IS_INCOMING", true);
-                        intent.putExtra("IS_SPAM", isSpam);
+                        intent.putExtra("IS_SPAM", spamResponse != null && spamResponse.isSpam);
+                        intent.putExtra("SPAM_REASON", spamResponse != null ? spamResponse.reason : null);
                         intent.putExtra("REMOTE_OFFER", description.description);
                         intent.putExtra("CONTACT_PHONE", callerPhone);
                         

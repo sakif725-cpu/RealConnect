@@ -46,21 +46,27 @@ public class AiService {
         return apiService;
     }
 
-    public static void checkSpam(String phoneNumber, AiCallback<Boolean> callback) {
+    public static void checkSpam(String phoneNumber, AiCallback<AiApiService.SpamResponse> callback) {
         getApi().checkSpam(phoneNumber).enqueue(new Callback<AiApiService.SpamResponse>() {
             @Override
             public void onResponse(Call<AiApiService.SpamResponse> call, Response<AiApiService.SpamResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    callback.onResult(response.body().isSpam);
+                    callback.onResult(response.body());
                 } else {
-                    callback.onResult(false); // Default to safe if API fails
+                    AiApiService.SpamResponse fallback = new AiApiService.SpamResponse();
+                    fallback.isSpam = false;
+                    fallback.reason = "Safe";
+                    callback.onResult(fallback);
                 }
             }
 
             @Override
             public void onFailure(Call<AiApiService.SpamResponse> call, Throwable t) {
                 Log.e(TAG, "Spam Check Failed", t);
-                callback.onResult(false);
+                AiApiService.SpamResponse fallback = new AiApiService.SpamResponse();
+                fallback.isSpam = false;
+                fallback.reason = "Network Error";
+                callback.onResult(fallback);
             }
         });
     }
