@@ -1,7 +1,9 @@
 package com.realconnect.app;
 
 import android.Manifest;
+import android.app.NotificationManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
@@ -10,11 +12,13 @@ import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -60,6 +64,26 @@ public class CallingActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            );
+        }
+
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.cancel(CallService.INCOMING_CALL_NOTIFICATION_ID);
+        }
+
+        CallService.pauseListening();
+
         setContentView(R.layout.activity_calling);
 
         SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
@@ -69,6 +93,7 @@ public class CallingActivity extends AppCompatActivity {
 
         if (selfPhone.isEmpty()) {
             Toast.makeText(this, "Profile number missing!", Toast.LENGTH_SHORT).show();
+            CallService.resumeListening();
             finish();
             return;
         }
@@ -412,6 +437,8 @@ public class CallingActivity extends AppCompatActivity {
         if (peerConnection != null) peerConnection.dispose();
         if (audioSource != null) audioSource.dispose();
         if (factory != null) factory.dispose();
+
+        CallService.resumeListening();
     }
 
     private static class SimpleSdpObserver implements SdpObserver {
