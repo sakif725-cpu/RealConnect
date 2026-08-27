@@ -349,6 +349,8 @@ public class CallingActivity extends AppCompatActivity {
                 localAudioTrack.setEnabled(!isSelected);
             } else if (labelRes == R.string.label_speaker) {
                 audioManager.setSpeakerphoneOn(isSelected);
+            } else if (labelRes == R.string.label_ai_mode) {
+                performVoiceAiAnalysis();
             }
         });
     }
