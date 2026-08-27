@@ -96,8 +96,7 @@ public class CallingActivity extends AppCompatActivity {
             startRinging();
             
             if (getIntent().getBooleanExtra("IS_SPAM", false)) {
-                String spamReason = getIntent().getStringExtra("SPAM_REASON");
-                showSpamWarning(spamReason);
+                showSpamWarning();
             }
         } else {
             btnAcceptCall.setVisibility(View.GONE);
@@ -116,13 +115,8 @@ public class CallingActivity extends AppCompatActivity {
         setupSignaling();
     }
 
-    private void showSpamWarning(String reason) {
+    private void showSpamWarning() {
         textSpamWarning.setVisibility(View.VISIBLE);
-        if (reason != null && !reason.trim().isEmpty() && !reason.equalsIgnoreCase("null")) {
-            textSpamWarning.setText("⚠ " + reason.toUpperCase());
-        } else {
-            textSpamWarning.setText("⚠ POSSIBLE SPAM CALL");
-        }
         textAiStatus.setText("AI: SPAM DETECTED");
         textAiStatus.setTextColor(Color.parseColor("#EF4444"));
     }
@@ -141,19 +135,41 @@ public class CallingActivity extends AppCompatActivity {
     }
 
     private void performVoiceAiAnalysis() {
-        textAiStatus.setText("AI: ANALYZING VOICE...");
+        textAiStatus.setText("AI: LISTENING TO VOICE...");
         textAiStatus.setTextColor(Color.WHITE);
         
-        AiService.detectBot(null, isBot -> {
-            if (isBot) {
-                textAiStatus.setText("AI: BOT DETECTED");
-                textAiStatus.setTextColor(Color.parseColor("#EF4444"));
-                Toast.makeText(this, "Security Alert: Possible AI Bot", Toast.LENGTH_LONG).show();
-            } else {
-                AiService.verifySpeaker(targetPhone, null, result -> {
-                    textAiStatus.setText("AI: IDENTITY VERIFIED");
-                    textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+        AudioRecorderHelper.captureAudioSnippet(this, 2, new AudioRecorderHelper.AudioCaptureCallback() {
+            @Override
+            public void onAudioCaptured(byte[] audioBytes) {
+                textAiStatus.setText("AI: ANALYZING VOICE...");
+                textAiStatus.setTextColor(Color.WHITE);
+
+                // 1. Check if voice is synthetic/bot
+                AiService.detectBot(audioBytes, isBot -> {
+                    if (isBot) {
+                        textAiStatus.setText("AI: BOT DETECTED");
+                        textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                        Toast.makeText(CallingActivity.this, "Security Alert: Possible AI Bot", Toast.LENGTH_LONG).show();
+                    } else {
+                        // 2. If human voice, verify speaker identity
+                        AiService.verifySpeaker(targetPhone, audioBytes, result -> {
+                            if ("Verified".equalsIgnoreCase(result)) {
+                                textAiStatus.setText("AI: IDENTITY VERIFIED");
+                                textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+                            } else {
+                                textAiStatus.setText("AI: " + result.toUpperCase());
+                                textAiStatus.setTextColor(Color.parseColor("#EAB308"));
+                            }
+                        });
+                    }
                 });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Log.w(TAG, "Audio capture fallback: " + errorMessage);
+                textAiStatus.setText("AI GUARD: ACTIVE");
+                textAiStatus.setTextColor(Color.WHITE);
             }
         });
     }
