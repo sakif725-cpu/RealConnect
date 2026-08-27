@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A">
+    android:background="@color/background">
 
     <!-- Header -->
     <TextView
@@ -14,7 +14,7 @@
         android:layout_marginStart="24dp"
         android:layout_marginTop="32dp"
         android:text="Chats"
-        android:textColor="@color/white"
+        android:textColor="@color/textColorPrimary"
         android:textSize="28sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
@@ -49,22 +49,23 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:src="@drawable/ic_chat"
-            app:tint="#475569" />
+            app:tint="#94A3B8" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="No messages yet"
-            android:textColor="#64748B"
-            android:textSize="16sp" />
+            android:textColor="@color/textColorPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Start a conversation from your contacts"
-            android:textColor="#475569"
+            android:textColor="@color/textColorSecondary"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -77,7 +78,7 @@
         android:layout_marginBottom="96dp"
         android:contentDescription="New Chat"
         android:src="@drawable/ic_add"
-        app:backgroundTint="#2563EB"
+        app:backgroundTint="#0EA5E9"
         app:elevation="6dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

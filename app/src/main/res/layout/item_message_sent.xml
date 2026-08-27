@@ -11,7 +11,7 @@
         android:id="@+id/card_message_sent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="#2563EB"
+        app:cardBackgroundColor="@color/colorPrimary"
         app:cardCornerRadius="18dp"
         app:cardElevation="1dp"
         app:strokeWidth="0dp"
@@ -42,7 +42,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
                 android:layout_marginTop="4dp"
-                android:textColor="#B3FFFFFF"
+                android:textColor="#E0F2FE"
                 android:textSize="11sp"
                 tools:text="10:45 AM" />
         </LinearLayout>
