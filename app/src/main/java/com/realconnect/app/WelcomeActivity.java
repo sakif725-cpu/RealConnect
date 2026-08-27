@@ -16,9 +16,8 @@ public class WelcomeActivity extends AppCompatActivity {
 
         FloatingActionButton btnStart = findViewById(R.id.btn_start_app);
         btnStart.setOnClickListener(v -> {
-            Intent intent = new Intent(WelcomeActivity.this, MainActivity.class);
+            Intent intent = new Intent(WelcomeActivity.this, AuthActivity.class);
             startActivity(intent);
-            finish();
         });
     }
 }
