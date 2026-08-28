@@ -137,13 +137,6 @@ public class ContactsFragment extends Fragment {
             );
         }
 
-        android.widget.ImageView imgAvatar = dialogView.findViewById(R.id.img_sheet_avatar);
-        android.widget.TextView textName = dialogView.findViewById(R.id.text_sheet_name);
-        android.widget.TextView textPhone = dialogView.findViewById(R.id.text_sheet_phone);
-        View btnClose = dialogView.findViewById(R.id.btn_floating_close);
-        View btnQuickCall = dialogView.findViewById(R.id.btn_sheet_quick_call);
-        View btnQuickMsg = dialogView.findViewById(R.id.btn_sheet_quick_message);
-
         View actionCopy = dialogView.findViewById(R.id.action_copy_number);
         View actionShare = dialogView.findViewById(R.id.action_share_contact);
         View actionEdit = dialogView.findViewById(R.id.action_edit_contact);
@@ -152,49 +145,6 @@ public class ContactsFragment extends Fragment {
 
         android.widget.TextView textBlockTitle = dialogView.findViewById(R.id.text_block_title);
         android.widget.ImageView imgBlockIcon = dialogView.findViewById(R.id.img_block_icon);
-        com.google.android.material.card.MaterialCardView cardBlockIcon = dialogView.findViewById(R.id.card_block_icon);
-
-        textName.setText(contact.getName());
-        textPhone.setText(contact.getPhoneNumber());
-
-        if (btnClose != null) {
-            btnClose.setOnClickListener(v -> floatingDialog.dismiss());
-        }
-
-        // Avatar placeholder
-        android.graphics.Bitmap avatarBitmap = ImageUtils.createAvatarWithInitial(
-                contact.getName(), 180, android.graphics.Color.parseColor("#0EA5E9"), android.graphics.Color.WHITE
-        );
-        imgAvatar.setImageBitmap(avatarBitmap);
-
-        // Fetch remote avatar if available
-        String cleanPhone = ChatRepository.cleanPhone(contact.getPhoneNumber());
-        if (!cleanPhone.isEmpty()) {
-            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users")
-                    .child(cleanPhone).child("profileImageBase64")
-                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
-                        @Override
-                        public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
-                            String base64 = snapshot.getValue(String.class);
-                            if (base64 != null && !base64.isEmpty() && isAdded()) {
-                                android.graphics.Bitmap bmp = ImageUtils.base64ToBitmap(base64);
-                                if (bmp != null) imgAvatar.setImageBitmap(bmp);
-                            }
-                        }
-                        @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {}
-                    });
-        }
-
-        // Quick Call & Message
-        btnQuickCall.setOnClickListener(v -> {
-            floatingDialog.dismiss();
-            initiateCall(contact);
-        });
-
-        btnQuickMsg.setOnClickListener(v -> {
-            floatingDialog.dismiss();
-            initiateChat(contact);
-        });
 
         // 1. Copy Phone Number
         actionCopy.setOnClickListener(v -> {
@@ -212,7 +162,7 @@ public class ContactsFragment extends Fragment {
             floatingDialog.dismiss();
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
             shareIntent.setType("text/plain");
-            String shareBody = "Name: " + contact.getName() + "\nPhone: " + contact.getPhoneNumber() + "\nShared via RealConnect";
+            String shareBody = "Contact: " + contact.getName() + "\nPhone: " + contact.getPhoneNumber();
             shareIntent.putExtra(Intent.EXTRA_TEXT, shareBody);
             startActivity(Intent.createChooser(shareIntent, "Share Contact"));
         });
@@ -226,15 +176,13 @@ public class ContactsFragment extends Fragment {
         // 4. Block / Unblock Contact
         boolean isCurrentlyBlocked = BlockedNumbersManager.isBlocked(requireContext(), contact.getPhoneNumber());
         if (isCurrentlyBlocked) {
-            textBlockTitle.setText("Unblock Contact");
+            textBlockTitle.setText("Unblock Number");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
-            cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#ECFDF5"));
             imgBlockIcon.setImageResource(R.drawable.ic_contacts);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
         } else {
-            textBlockTitle.setText("Block Contact");
+            textBlockTitle.setText("Block Number");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
-            cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
             imgBlockIcon.setImageResource(R.drawable.ic_block);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
         }
@@ -246,8 +194,8 @@ public class ContactsFragment extends Fragment {
                 Toast.makeText(getContext(), "Unblocked " + contact.getName(), Toast.LENGTH_SHORT).show();
             } else {
                 new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("Block " + contact.getName() + "?")
-                        .setMessage("You will no longer receive phone calls or messages from " + contact.getPhoneNumber() + ".")
+                        .setTitle("Block Contact")
+                        .setMessage("Are you sure you want to block calls and messages from " + contact.getPhoneNumber() + "?")
                         .setPositiveButton("Block", (d, w) -> {
                             BlockedNumbersManager.blockNumber(requireContext(), contact.getPhoneNumber());
                             Toast.makeText(getContext(), "Blocked " + contact.getName(), Toast.LENGTH_SHORT).show();

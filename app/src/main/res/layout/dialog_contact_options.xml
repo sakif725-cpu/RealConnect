@@ -1,386 +1,194 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@android:color/transparent"
-    android:paddingHorizontal="20dp"
+    android:paddingHorizontal="32dp"
     android:paddingVertical="24dp">
 
-    <!-- Floating Dialog Card Box -->
+    <!-- Floating Dialog Box with Shadow -->
     <com.google.android.material.card.MaterialCardView
-        android:id="@+id/card_floating_contact_box"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        app:cardBackgroundColor="@color/surface"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="16dp"
-        app:strokeColor="@color/divider"
+        app:cardBackgroundColor="#FFFFFF"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="12dp"
+        app:strokeColor="#E2E8F0"
         app:strokeWidth="1dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:paddingVertical="6dp">
 
-            <!-- Top Header Row: Close Button -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:letterSpacing="0.05"
-                    android:text="CONTACT DETAILS"
-                    android:textColor="@color/colorPrimary"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-
-                <ImageButton
-                    android:id="@+id/btn_floating_close"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentEnd="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Close"
-                    android:src="@drawable/ic_call_end"
-                    android:rotation="45"
-                    app:tint="@color/textColorSecondary" />
-            </RelativeLayout>
-
-            <!-- Centered Avatar & Contact Info -->
+            <!-- 1. Copy Phone Number -->
             <LinearLayout
+                android:id="@+id/action_copy_number"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical"
-                android:layout_marginTop="8dp">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp">
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    app:cardBackgroundColor="@color/colorPrimary"
-                    app:cardCornerRadius="36dp"
-                    app:cardElevation="4dp"
-                    app:strokeColor="@color/surface"
-                    app:strokeWidth="2dp">
-
-                    <ImageView
-                        android:id="@+id/img_sheet_avatar"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="centerCrop" />
-                </com.google.android.material.card.MaterialCardView>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_copy"
+                    app:tint="#334155" />
 
                 <TextView
-                    android:id="@+id/text_sheet_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="Contact Name"
-                    android:textColor="@color/textColorPrimary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/text_sheet_phone"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="+1 234 567 8900"
-                    android:textColor="@color/textColorSecondary"
-                    android:textSize="14sp" />
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Copy Phone Number"
+                    android:textColor="#1E293B"
+                    android:textSize="15sp" />
             </LinearLayout>
 
-            <!-- Quick Action Buttons Row -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="horizontal">
-
-                <!-- Quick Call Pill -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_sheet_quick_call"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:backgroundTint="#10B981"
-                    android:text="Call"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_call"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white" />
-
-                <!-- Quick Message Pill -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_sheet_quick_message"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:backgroundTint="@color/colorPrimary"
-                    android:text="Chat"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_chat"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white" />
-            </LinearLayout>
-
-            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="8dp"
-                android:background="@color/divider" />
+                android:background="#F1F5F9" />
 
-            <!-- Options Action List -->
+            <!-- 2. Share Contact -->
             <LinearLayout
+                android:id="@+id/action_share_contact"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp">
 
-                <!-- 1. Copy Phone Number -->
-                <LinearLayout
-                    android:id="@+id/action_copy_number"
-                    android:layout_width="match_parent"
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_share"
+                    app:tint="#334155" />
+
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingVertical="10dp"
-                    android:paddingHorizontal="4dp">
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Share Contact"
+                    android:textColor="#1E293B"
+                    android:textSize="15sp" />
+            </LinearLayout>
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        app:cardBackgroundColor="#F1F5F9"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#F1F5F9" />
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_copy"
-                            app:tint="#475569" />
-                    </com.google.android.material.card.MaterialCardView>
+            <!-- 3. Edit Contact -->
+            <LinearLayout
+                android:id="@+id/action_edit_contact"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text="Copy Phone Number"
-                        android:textColor="@color/textColorPrimary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_edit"
+                    app:tint="#334155" />
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="#94A3B8" />
-                </LinearLayout>
-
-                <!-- 2. Share Contact -->
-                <LinearLayout
-                    android:id="@+id/action_share_contact"
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingVertical="10dp"
-                    android:paddingHorizontal="4dp">
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Edit Contact"
+                    android:textColor="#1E293B"
+                    android:textSize="15sp" />
+            </LinearLayout>
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        app:cardBackgroundColor="#EFF6FF"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#F1F5F9" />
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_share"
-                            app:tint="@color/colorPrimary" />
-                    </com.google.android.material.card.MaterialCardView>
+            <!-- 4. Block / Unblock Contact -->
+            <LinearLayout
+                android:id="@+id/action_block_contact"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text="Share Contact"
-                        android:textColor="@color/textColorPrimary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                <ImageView
+                    android:id="@+id/img_block_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_block"
+                    app:tint="#D97706" />
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="#94A3B8" />
-                </LinearLayout>
-
-                <!-- 3. Edit Contact -->
-                <LinearLayout
-                    android:id="@+id/action_edit_contact"
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/text_block_title"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingVertical="10dp"
-                    android:paddingHorizontal="4dp">
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Block Number"
+                    android:textColor="#D97706"
+                    android:textSize="15sp" />
+            </LinearLayout>
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        app:cardBackgroundColor="#F3E8FF"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#F1F5F9" />
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_edit"
-                            app:tint="#8B5CF6" />
-                    </com.google.android.material.card.MaterialCardView>
+            <!-- 5. Delete Contact -->
+            <LinearLayout
+                android:id="@+id/action_delete_contact"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text="Edit Contact"
-                        android:textColor="@color/textColorPrimary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_delete"
+                    app:tint="#EF4444" />
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="#94A3B8" />
-                </LinearLayout>
-
-                <!-- 4. Block / Unblock Contact -->
-                <LinearLayout
-                    android:id="@+id/action_block_contact"
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingVertical="10dp"
-                    android:paddingHorizontal="4dp">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/card_block_icon"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        app:cardBackgroundColor="#FFFBEB"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
-
-                        <ImageView
-                            android:id="@+id/img_block_icon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_block"
-                            app:tint="#D97706" />
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <TextView
-                        android:id="@+id/text_block_title"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text="Block Contact"
-                        android:textColor="#D97706"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="#94A3B8" />
-                </LinearLayout>
-
-                <!-- 5. Delete Contact -->
-                <LinearLayout
-                    android:id="@+id/action_delete_contact"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingVertical="10dp"
-                    android:paddingHorizontal="4dp">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        app:cardBackgroundColor="#FEF2F2"
-                        app:cardCornerRadius="10dp"
-                        app:cardElevation="0dp">
-
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_delete"
-                            app:tint="#EF4444" />
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
-                        android:layout_weight="1"
-                        android:text="Delete Contact"
-                        android:textColor="#EF4444"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="#94A3B8" />
-                </LinearLayout>
-
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Delete Contact"
+                    android:textColor="#EF4444"
+                    android:textSize="15sp" />
             </LinearLayout>
 
         </LinearLayout>
