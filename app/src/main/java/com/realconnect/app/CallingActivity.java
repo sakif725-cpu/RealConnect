@@ -68,7 +68,6 @@ public class CallingActivity extends AppCompatActivity {
     private boolean isIncoming;
     private LiveRiskResult lastRiskResult;
     private LiveCallAiProcessor aiProcessor;
-    private CallTranscriptManager transcriptLogger;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,7 +126,7 @@ public class CallingActivity extends AppCompatActivity {
 
         View badgeAiStatus = findViewById(R.id.ai_status_badge);
         if (badgeAiStatus != null) {
-            badgeAiStatus.setOnClickListener(v -> showLiveTranscriptModal());
+            badgeAiStatus.setOnClickListener(v -> performVoiceAiAnalysis(true));
         }
 
         // Default UI State: Controls visible for caller, hidden for receiver
@@ -252,15 +251,6 @@ public class CallingActivity extends AppCompatActivity {
             running = true;
             runTimer();
             startContinuousAiListening();
-
-            try {
-                if (transcriptLogger == null) {
-                    transcriptLogger = new CallTranscriptManager(CallingActivity.this);
-                }
-                transcriptLogger.startListening();
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to start transcript logger", e);
-            }
         });
     }
 
@@ -307,15 +297,6 @@ public class CallingActivity extends AppCompatActivity {
                         textAiStatus.setText("AI: SAFE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#22C55E"));
                         textSpamWarning.setVisibility(View.GONE);
-                    }
-                });
-            }
-
-            @Override
-            public void onTranscriptReceived(String text) {
-                runOnUiThread(() -> {
-                    if (transcriptLogger != null) {
-                        transcriptLogger.addLiveTranscriptSentence(text);
                     }
                 });
             }
@@ -576,89 +557,11 @@ public class CallingActivity extends AppCompatActivity {
             } else if (labelRes == R.string.label_speaker) {
                 audioManager.setSpeakerphoneOn(isSelected);
             } else if (labelRes == R.string.label_ai_mode) {
-                showLiveTranscriptModal();
+                performVoiceAiAnalysis(true);
             } else if (labelRes == R.string.label_record) {
                 toggleCallRecording(isSelected);
             }
         });
-    }
-
-    private void showLiveTranscriptModal() {
-        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
-                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
-        View view = getLayoutInflater().inflate(R.layout.dialog_live_call_transcript, null);
-        dialog.setContentView(view);
-
-        TextView textTranscriptContent = view.findViewById(R.id.text_live_transcript_content);
-        androidx.core.widget.NestedScrollView scrollView = view.findViewById(R.id.scroll_live_transcript);
-        View btnCopy = view.findViewById(R.id.btn_copy_live_transcript);
-        View btnClose = view.findViewById(R.id.btn_close_live_transcript);
-
-        Runnable updateTranscriptUI = () -> {
-            String sessionText = (transcriptLogger != null) ? transcriptLogger.getCurrentSessionTranscript() : "";
-            String partialText = (transcriptLogger != null) ? transcriptLogger.getLastPartialText() : "";
-
-            StringBuilder display = new StringBuilder();
-            if (!sessionText.trim().isEmpty()) {
-                display.append(sessionText.trim());
-            }
-            if (!partialText.trim().isEmpty()) {
-                if (display.length() > 0) display.append("\n");
-                display.append("🎙️ ").append(partialText.trim()).append("...");
-            }
-
-            if (display.length() > 0) {
-                textTranscriptContent.setText(display.toString());
-                if (scrollView != null) {
-                    scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
-                }
-            } else {
-                textTranscriptContent.setText("🎙️ Listening to live audio stream...\nSpeak into the microphone to see real-time speech transcription.");
-            }
-        };
-
-        updateTranscriptUI.run();
-
-        if (transcriptLogger != null) {
-            transcriptLogger.setOnTranscriptUpdatedListener(new CallTranscriptManager.OnTranscriptUpdatedListener() {
-                @Override
-                public void onPartialSentence(String partialText) {
-                    runOnUiThread(updateTranscriptUI::run);
-                }
-
-                @Override
-                public void onSentenceLogged(String timestamp, String text) {
-                    runOnUiThread(updateTranscriptUI::run);
-                }
-
-                @Override
-                public void onError(String errorMessage) {
-                    // Handled internally
-                }
-            });
-        }
-
-        if (btnCopy != null) {
-            btnCopy.setOnClickListener(v -> {
-                String text = (transcriptLogger != null) ? transcriptLogger.getCurrentSessionTranscript() : "";
-                if (!text.trim().isEmpty()) {
-                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    android.content.ClipData clip = android.content.ClipData.newPlainText("Live Call Transcript", text);
-                    if (clipboard != null) {
-                        clipboard.setPrimaryClip(clip);
-                        Toast.makeText(CallingActivity.this, "Call transcript copied to clipboard", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    Toast.makeText(CallingActivity.this, "No speech transcribed in this call yet", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-
-        if (btnClose != null) {
-            btnClose.setOnClickListener(v -> dialog.dismiss());
-        }
-
-        dialog.show();
     }
 
     private void toggleCallRecording(boolean start) {
@@ -736,10 +639,6 @@ public class CallingActivity extends AppCompatActivity {
         if (aiProcessor != null) {
             aiProcessor.stop();
             aiProcessor = null;
-        }
-        if (transcriptLogger != null) {
-            transcriptLogger.stopListening();
-            transcriptLogger = null;
         }
         CallRecordingHelper.getInstance().stopRecording();
         saveCallLogEntry();

@@ -17,12 +17,6 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <queries>
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-    </queries>
-
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -77,10 +71,6 @@
 
         <activity
             android:name=".RecordingsActivity"
-            android:theme="@style/Theme.RealConnect" />
-
-        <activity
-            android:name=".TranscriptsLogActivity"
             android:theme="@style/Theme.RealConnect" />
 
         <provider

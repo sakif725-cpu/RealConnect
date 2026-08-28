@@ -10,7 +10,6 @@ public class LiveCallAiProcessor {
     public interface AiScanListener {
         void onProgressTick(int secondsElapsed, String statusSummary);
         void onRiskUpdated(LiveRiskResult result);
-        default void onTranscriptReceived(String text) {}
     }
 
     private static final String TAG = "LiveCallAiProcessor";
@@ -127,15 +126,10 @@ public class LiveCallAiProcessor {
                 analyzeAcoustics(audioBytes);
 
                 Log.d(TAG, "Sending " + audioBytes.length + " bytes to Render POST /voice-analysis...");
-                AiService.detectVoiceAndTranscript(audioBytes, response -> {
-                    if (response != null) {
-                        Log.d(TAG, "Render POST /voice-analysis response: isBot=" + response.isBot + ", transcript=" + response.transcript);
-                        if (response.isBot) {
-                            isSyntheticVoiceDetected = true;
-                        }
-                        if (response.transcript != null && !response.transcript.trim().isEmpty() && listener != null) {
-                            listener.onTranscriptReceived(response.transcript.trim());
-                        }
+                AiService.detectBot(audioBytes, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis response: isBot=" + isBot);
+                    if (isBot) {
+                        isSyntheticVoiceDetected = true;
                     }
                     evaluateLiveContext();
                 });
@@ -145,8 +139,9 @@ public class LiveCallAiProcessor {
             public void onError(String errorMessage) {
                 Log.w(TAG, "Audio capture skipped: " + errorMessage);
                 byte[] fallbackWav = WavUtils.pcmToWav(new byte[16000 * 2 * 2], 16000, 1, 16);
-                AiService.detectVoiceAndTranscript(fallbackWav, response -> {
-                    if (response != null && response.isBot) {
+                AiService.detectBot(fallbackWav, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis (fallback) response: isBot=" + isBot);
+                    if (isBot) {
                         isSyntheticVoiceDetected = true;
                     }
                     evaluateLiveContext();

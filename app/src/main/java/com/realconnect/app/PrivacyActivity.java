@@ -15,7 +15,6 @@ import java.util.List;
 public class PrivacyActivity extends AppCompatActivity {
 
     private TextView textRecordingsCount;
-    private TextView textTranscriptsCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +38,6 @@ public class PrivacyActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         textRecordingsCount = findViewById(R.id.text_recordings_count);
-        textTranscriptsCount = findViewById(R.id.text_transcripts_count);
 
         // 1. Recordings (Functional)
         findViewById(R.id.card_option_recordings).setOnClickListener(v -> {
@@ -47,13 +45,7 @@ public class PrivacyActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // 2. Transcripts Log (Functional)
-        findViewById(R.id.card_option_transcripts).setOnClickListener(v -> {
-            Intent intent = new Intent(PrivacyActivity.this, TranscriptsLogActivity.class);
-            startActivity(intent);
-        });
-
-        // 3. Change Phone Number
+        // 2. Change Phone Number
         findViewById(R.id.card_option_change_phone).setOnClickListener(v -> {
             new AlertDialog.Builder(PrivacyActivity.this)
                     .setTitle("Change Phone Number")
@@ -62,7 +54,7 @@ public class PrivacyActivity extends AppCompatActivity {
                     .show();
         });
 
-        // 4. Blocked Numbers
+        // 3. Blocked Numbers
         findViewById(R.id.card_option_blocked_numbers).setOnClickListener(v -> {
             new AlertDialog.Builder(PrivacyActivity.this)
                     .setTitle("Blocked Numbers")
@@ -76,26 +68,6 @@ public class PrivacyActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateRecordingsCount();
-        updateTranscriptsCount();
-    }
-
-    private void updateTranscriptsCount() {
-        if (textTranscriptsCount == null) return;
-        try {
-            CallTranscriptManager manager = new CallTranscriptManager(this);
-            String transcript = manager.readCompleteTranscript();
-            java.io.File file = manager.getTranscriptFile();
-            if (transcript.trim().isEmpty() || !file.exists() || file.length() == 0) {
-                textTranscriptsCount.setText("No transcripts logged yet");
-            } else {
-                int lines = transcript.split("\n").length;
-                long bytes = file.length();
-                String sizeStr = bytes > 1024 ? String.format(java.util.Locale.getDefault(), "%.1f KB", bytes / 1024.0) : bytes + " B";
-                textTranscriptsCount.setText(lines + " " + (lines == 1 ? "entry" : "entries") + " (" + sizeStr + ") saved");
-            }
-        } catch (Exception e) {
-            textTranscriptsCount.setText("Manage real-time call speech transcripts");
-        }
     }
 
     private void updateRecordingsCount() {
