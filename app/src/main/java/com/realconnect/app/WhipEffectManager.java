@@ -92,10 +92,12 @@ public class WhipEffectManager {
         try {
             Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null && vibrator.hasVibrator()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    long[] timings = new long[]{0, 35, 110, 45, 120, 75};
+                    int[] amplitudes = new int[]{0, 190, 0, 230, 0, 255};
+                    vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
                 } else {
-                    vibrator.vibrate(50);
+                    vibrator.vibrate(new long[]{0, 35, 110, 45, 120, 75}, -1);
                 }
             }
         } catch (Exception ignored) {}
@@ -105,39 +107,42 @@ public class WhipEffectManager {
         if (synthesizedWhipBuffer != null) return synthesizedWhipBuffer;
 
         int sampleRate = 44100;
-        int numSamples = (int) (sampleRate * 0.48); // 480ms duration
-        short[] buffer = new short[numSamples];
+        int totalSamples = (int) (sampleRate * 0.68); // 680ms beating audio
+        short[] buffer = new short[totalSamples];
         Random random = new Random();
 
-        // 0.00s -> 0.22s : Smooth rising whoosh windup
-        int whooshSamples = (int) (sampleRate * 0.22);
-        for (int i = 0; i < whooshSamples; i++) {
-            double t = (double) i / whooshSamples;
-            double freq = 180.0 + (850.0 * t * t);
-            double sin = Math.sin(2.0 * Math.PI * freq * (double) i / sampleRate);
-            double noise = (random.nextDouble() * 2.0 - 1.0) * 0.35;
-            double env = t * t * 0.45;
-            buffer[i] = (short) ((sin + noise) * env * Short.MAX_VALUE);
-        }
+        // Rhythmic beating crack hits with bass punch
+        int[] hitTimes = new int[]{
+                (int) (sampleRate * 0.05), // Hit 1 at ~50ms
+                (int) (sampleRate * 0.22), // Hit 2 at ~220ms
+                (int) (sampleRate * 0.42)  // Hit 3 heavy power crack at ~420ms
+        };
 
-        // 0.22s -> 0.26s : High energy whip crack impact
-        int snapStart = whooshSamples;
-        int snapSamples = (int) (sampleRate * 0.04);
-        for (int i = 0; i < snapSamples; i++) {
-            double t = (double) i / snapSamples;
-            double noise = (random.nextDouble() * 2.0 - 1.0);
-            double impulse = (i % 2 == 0 ? 1.0 : -1.0) * (1.0 - t * 0.5);
-            buffer[snapStart + i] = (short) ((noise * 0.75 + impulse * 0.25) * Short.MAX_VALUE);
-        }
+        for (int h = 0; h < hitTimes.length; h++) {
+            int start = hitTimes[h];
+            boolean isHeavy = (h == 2);
+            int hitDur = (int) (sampleRate * (isHeavy ? 0.24 : 0.16));
 
-        // 0.26s -> 0.48s : Exponential decay snap tail
-        int tailStart = snapStart + snapSamples;
-        int tailSamples = numSamples - tailStart;
-        for (int i = 0; i < tailSamples; i++) {
-            double t = (double) i / tailSamples;
-            double decay = Math.exp(-10.0 * t);
-            double noise = (random.nextDouble() * 2.0 - 1.0) * decay;
-            buffer[tailStart + i] = (short) (noise * Short.MAX_VALUE * 0.85);
+            for (int i = 0; i < hitDur && (start + i) < totalSamples; i++) {
+                double t = (double) i / hitDur;
+                double sound;
+
+                if (i < (int) (sampleRate * 0.028)) {
+                    // Sharp impact impulse
+                    double noise = (random.nextDouble() * 2.0 - 1.0);
+                    double impulse = (i % 2 == 0 ? 1.0 : -1.0);
+                    sound = (noise * 0.75 + impulse * 0.25) * (isHeavy ? 1.0 : 0.82);
+                } else {
+                    // Exponential snap decay + bass thump for heavy hit
+                    double decay = Math.exp((isHeavy ? -8.5 : -13.0) * t);
+                    double noise = (random.nextDouble() * 2.0 - 1.0) * decay;
+                    double bassThump = isHeavy ? (Math.sin(2.0 * Math.PI * 110.0 * (double) i / sampleRate) * decay * 0.55) : 0;
+                    sound = (noise + bassThump) * (isHeavy ? 0.95 : 0.78);
+                }
+
+                int sampleVal = (int) (sound * Short.MAX_VALUE);
+                buffer[start + i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sampleVal));
+            }
         }
 
         synthesizedWhipBuffer = buffer;
@@ -169,7 +174,7 @@ public class WhipEffectManager {
 
                 // Release after playing
                 try {
-                    Thread.sleep(350);
+                    Thread.sleep(700);
                 } catch (InterruptedException ignored) {}
                 track.release();
             } catch (Exception ignored) {}
