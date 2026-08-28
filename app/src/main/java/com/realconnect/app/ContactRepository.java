@@ -17,11 +17,13 @@ public class ContactRepository {
         AppDatabase db = AppDatabase.getInstance(context);
         contactDao = db.contactDao();
         
-        // Initial data if database is empty
-        if (contactDao.getAllContacts().isEmpty()) {
-            contactDao.insert(new Contact("Alice Smith", "+1 (555) 019-2834"));
-            contactDao.insert(new Contact("Bob Johnson", "+1 (555) 492-1002"));
-            contactDao.insert(new Contact("Secure Relay 1", "+1 (800) 900-3311"));
+        // Clean up legacy dummy contacts if present
+        for (Contact c : contactDao.getAllContacts()) {
+            if ("+1 (555) 019-2834".equals(c.getPhoneNumber()) ||
+                "+1 (555) 492-1002".equals(c.getPhoneNumber()) ||
+                "+1 (800) 900-3311".equals(c.getPhoneNumber())) {
+                contactDao.delete(c);
+            }
         }
     }
 
