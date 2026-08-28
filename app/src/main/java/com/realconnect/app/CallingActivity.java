@@ -283,39 +283,18 @@ public class CallingActivity extends AppCompatActivity {
                     lastRiskResult = result;
                     if (isFinishing() || isDestroyed()) return;
 
-                    com.google.android.material.card.MaterialCardView badgeCard = findViewById(R.id.ai_status_badge);
-                    ImageView aiIcon = findViewById(R.id.ai_icon);
-
                     if (result.getLevel() == LiveRiskResult.Level.HIGH) {
                         textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#EF4444"));
-                        if (badgeCard != null) {
-                            badgeCard.setStrokeColor(Color.parseColor("#EF4444"));
-                            badgeCard.setCardBackgroundColor(Color.parseColor("#33EF4444"));
-                        }
-                        if (aiIcon != null) aiIcon.setColorFilter(Color.parseColor("#EF4444"));
-
                         textSpamWarning.setVisibility(View.VISIBLE);
-                        textSpamWarning.setText("⚠ " + (result.getSummary() != null ? result.getSummary().toUpperCase() : "HIGH THREAT DETECTED"));
+                        textSpamWarning.setText("⚠ " + result.getSummary().toUpperCase());
                     } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
                         textAiStatus.setText("AI: MODERATE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#EAB308"));
-                        if (badgeCard != null) {
-                            badgeCard.setStrokeColor(Color.parseColor("#EAB308"));
-                            badgeCard.setCardBackgroundColor(Color.parseColor("#33EAB308"));
-                        }
-                        if (aiIcon != null) aiIcon.setColorFilter(Color.parseColor("#EAB308"));
-
                         textSpamWarning.setVisibility(View.GONE);
                     } else {
                         textAiStatus.setText("AI: SAFE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#22C55E"));
-                        if (badgeCard != null) {
-                            badgeCard.setStrokeColor(Color.parseColor("#22C55E"));
-                            badgeCard.setCardBackgroundColor(Color.parseColor("#3322C55E"));
-                        }
-                        if (aiIcon != null) aiIcon.setColorFilter(Color.parseColor("#22C55E"));
-
                         textSpamWarning.setVisibility(View.GONE);
                     }
                 });
