@@ -124,34 +124,46 @@ public class ContactsFragment extends Fragment {
     private void showContactOptionsDialog(Contact contact) {
         if (!isAdded() || getContext() == null) return;
 
-        com.google.android.material.bottomsheet.BottomSheetDialog sheetDialog =
-                new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext());
-        View sheetView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_options, null);
-        sheetDialog.setContentView(sheetView);
+        android.app.Dialog floatingDialog = new android.app.Dialog(requireContext());
+        floatingDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_options, null);
+        floatingDialog.setContentView(dialogView);
 
-        android.widget.ImageView imgAvatar = sheetView.findViewById(R.id.img_sheet_avatar);
-        android.widget.TextView textName = sheetView.findViewById(R.id.text_sheet_name);
-        android.widget.TextView textPhone = sheetView.findViewById(R.id.text_sheet_phone);
-        View btnQuickCall = sheetView.findViewById(R.id.btn_sheet_quick_call);
-        View btnQuickMsg = sheetView.findViewById(R.id.btn_sheet_quick_message);
+        if (floatingDialog.getWindow() != null) {
+            floatingDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            floatingDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
 
-        View actionCopy = sheetView.findViewById(R.id.action_copy_number);
-        View actionShare = sheetView.findViewById(R.id.action_share_contact);
-        View actionEdit = sheetView.findViewById(R.id.action_edit_contact);
-        View actionBlock = sheetView.findViewById(R.id.action_block_contact);
-        View actionDelete = sheetView.findViewById(R.id.action_delete_contact);
+        android.widget.ImageView imgAvatar = dialogView.findViewById(R.id.img_sheet_avatar);
+        android.widget.TextView textName = dialogView.findViewById(R.id.text_sheet_name);
+        android.widget.TextView textPhone = dialogView.findViewById(R.id.text_sheet_phone);
+        View btnClose = dialogView.findViewById(R.id.btn_floating_close);
+        View btnQuickCall = dialogView.findViewById(R.id.btn_sheet_quick_call);
+        View btnQuickMsg = dialogView.findViewById(R.id.btn_sheet_quick_message);
 
-        android.widget.TextView textBlockTitle = sheetView.findViewById(R.id.text_block_title);
-        android.widget.TextView textBlockSubtitle = sheetView.findViewById(R.id.text_block_subtitle);
-        android.widget.ImageView imgBlockIcon = sheetView.findViewById(R.id.img_block_icon);
-        com.google.android.material.card.MaterialCardView cardBlockIcon = sheetView.findViewById(R.id.card_block_icon);
+        View actionCopy = dialogView.findViewById(R.id.action_copy_number);
+        View actionShare = dialogView.findViewById(R.id.action_share_contact);
+        View actionEdit = dialogView.findViewById(R.id.action_edit_contact);
+        View actionBlock = dialogView.findViewById(R.id.action_block_contact);
+        View actionDelete = dialogView.findViewById(R.id.action_delete_contact);
+
+        android.widget.TextView textBlockTitle = dialogView.findViewById(R.id.text_block_title);
+        android.widget.ImageView imgBlockIcon = dialogView.findViewById(R.id.img_block_icon);
+        com.google.android.material.card.MaterialCardView cardBlockIcon = dialogView.findViewById(R.id.card_block_icon);
 
         textName.setText(contact.getName());
         textPhone.setText(contact.getPhoneNumber());
 
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> floatingDialog.dismiss());
+        }
+
         // Avatar placeholder
         android.graphics.Bitmap avatarBitmap = ImageUtils.createAvatarWithInitial(
-                contact.getName(), 160, android.graphics.Color.parseColor("#0EA5E9"), android.graphics.Color.WHITE
+                contact.getName(), 180, android.graphics.Color.parseColor("#0EA5E9"), android.graphics.Color.WHITE
         );
         imgAvatar.setImageBitmap(avatarBitmap);
 
@@ -175,12 +187,12 @@ public class ContactsFragment extends Fragment {
 
         // Quick Call & Message
         btnQuickCall.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             initiateCall(contact);
         });
 
         btnQuickMsg.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             initiateChat(contact);
         });
 
@@ -192,12 +204,12 @@ public class ContactsFragment extends Fragment {
                 clipboard.setPrimaryClip(clip);
                 Toast.makeText(getContext(), "Copied " + contact.getPhoneNumber(), Toast.LENGTH_SHORT).show();
             }
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
         });
 
         // 2. Share Contact
         actionShare.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
             shareIntent.setType("text/plain");
             String shareBody = "Name: " + contact.getName() + "\nPhone: " + contact.getPhoneNumber() + "\nShared via RealConnect";
@@ -207,7 +219,7 @@ public class ContactsFragment extends Fragment {
 
         // 3. Edit Contact
         actionEdit.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             showEditContactDialog(contact);
         });
 
@@ -216,21 +228,19 @@ public class ContactsFragment extends Fragment {
         if (isCurrentlyBlocked) {
             textBlockTitle.setText("Unblock Contact");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
-            textBlockSubtitle.setText("Allow calls and messages from this number");
             cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#ECFDF5"));
             imgBlockIcon.setImageResource(R.drawable.ic_contacts);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
         } else {
             textBlockTitle.setText("Block Contact");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
-            textBlockSubtitle.setText("Prevent calls and messages from this number");
             cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
             imgBlockIcon.setImageResource(R.drawable.ic_block);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
         }
 
         actionBlock.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             if (isCurrentlyBlocked) {
                 BlockedNumbersManager.unblockNumber(requireContext(), contact.getPhoneNumber());
                 Toast.makeText(getContext(), "Unblocked " + contact.getName(), Toast.LENGTH_SHORT).show();
@@ -249,11 +259,11 @@ public class ContactsFragment extends Fragment {
 
         // 5. Delete Contact
         actionDelete.setOnClickListener(v -> {
-            sheetDialog.dismiss();
+            floatingDialog.dismiss();
             showDeleteConfirmationDialog(contact);
         });
 
-        sheetDialog.show();
+        floatingDialog.show();
     }
 
     private void showEditContactDialog(Contact contact) {
