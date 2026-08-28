@@ -138,6 +138,11 @@ public class LiveCallAiProcessor {
             @Override
             public void onError(String errorMessage) {
                 Log.w(TAG, "Audio capture skipped: " + errorMessage);
+                byte[] fallbackWav = WavUtils.pcmToWav(new byte[16000 * 2 * 2], 16000, 1, 16);
+                AiService.detectBot(fallbackWav, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis (fallback) response: isBot=" + isBot);
+                    evaluateLiveContext();
+                });
             }
         });
     }
