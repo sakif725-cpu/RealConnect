@@ -162,5 +162,33 @@ public class PrivacyActivity extends AppCompatActivity {
                         .show();
             }
         });
+
+        // 4. Magic Settings
+        findViewById(R.id.card_option_magic).setOnClickListener(v -> {
+            android.app.Dialog magicDialog = new android.app.Dialog(PrivacyActivity.this);
+            magicDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View magicView = getLayoutInflater().inflate(R.layout.dialog_magic_settings, null);
+            magicDialog.setContentView(magicView);
+
+            com.google.android.material.switchmaterial.SwitchMaterial switchWhip = magicView.findViewById(R.id.switch_whip_enabled);
+            View btnDone = magicView.findViewById(R.id.btn_magic_done);
+
+            switchWhip.setChecked(WhipEffectManager.isWhipEnabled(PrivacyActivity.this));
+            switchWhip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                WhipEffectManager.setWhipEnabled(PrivacyActivity.this, isChecked);
+            });
+
+            btnDone.setOnClickListener(cv -> magicDialog.dismiss());
+
+            magicDialog.show();
+            if (magicDialog.getWindow() != null) {
+                magicDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                magicDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                magicDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
+        });
     }
 }

@@ -75,6 +75,7 @@ public class ChatActivity extends AppCompatActivity {
         initViews();
         loadLocalHistory();
         setupRealtimeListener();
+        setupMagicEventListener();
     }
 
     private void initViews() {
@@ -101,6 +102,18 @@ public class ChatActivity extends AppCompatActivity {
 
         ImageView imgAvatar = findViewById(R.id.img_chat_header_avatar);
         loadHeaderAvatar(imgAvatar, targetPhone, targetName);
+
+        View cardAvatar = findViewById(R.id.card_chat_header_avatar);
+        View.OnClickListener whipClickListener = v -> {
+            if (WhipEffectManager.isWhipEnabled(ChatActivity.this)) {
+                WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar);
+                sendMagicWhipEvent();
+            }
+        };
+        imgAvatar.setOnClickListener(whipClickListener);
+        if (cardAvatar != null) {
+            cardAvatar.setOnClickListener(whipClickListener);
+        }
 
         textName.setText(targetName != null && !targetName.isEmpty() ? targetName : targetPhone);
         textPhone.setText(targetPhone);
@@ -301,12 +314,75 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+    private com.google.firebase.database.ValueEventListener magicEventListener;
+
+    private void sendMagicWhipEvent() {
+        if (chatId == null || chatId.isEmpty()) return;
+        java.util.Map<String, Object> whipData = new java.util.HashMap<>();
+        whipData.put("action", "whip");
+        whipData.put("sender", selfPhone);
+        whipData.put("timestamp", com.google.firebase.database.ServerValue.TIMESTAMP);
+
+        com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("chats")
+                .child(chatId)
+                .child("magic_event")
+                .setValue(whipData);
+    }
+
+    private void setupMagicEventListener() {
+        if (chatId == null || chatId.isEmpty()) return;
+        long activityStartTime = System.currentTimeMillis();
+
+        magicEventListener = new com.google.firebase.database.ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
+                try {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (!snapshot.exists()) return;
+
+                    String action = snapshot.child("action").getValue(String.class);
+                    String sender = snapshot.child("sender").getValue(String.class);
+                    Long timestamp = snapshot.child("timestamp").getValue(Long.class);
+
+                    if ("whip".equals(action) && sender != null && !ChatRepository.cleanPhone(sender).equals(ChatRepository.cleanPhone(selfPhone))) {
+                        if (timestamp != null && (timestamp >= (activityStartTime - 2000) || (System.currentTimeMillis() - timestamp) < 7000)) {
+                            if (WhipEffectManager.isWhipEnabled(ChatActivity.this)) {
+                                runOnUiThread(() -> {
+                                    ImageView imgAvatar = findViewById(R.id.img_chat_header_avatar);
+                                    WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar);
+                                    Toast.makeText(ChatActivity.this, "💥 Whipped by " + (targetName != null && !targetName.isEmpty() ? targetName : targetPhone) + "!", Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            @Override
+            public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {}
+        };
+
+        com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("chats")
+                .child(chatId)
+                .child("magic_event")
+                .addValueEventListener(magicEventListener);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         destroySignaling();
         if (chatRepo != null && chatId != null) {
             chatRepo.stopListeningForMessages(chatId);
+        }
+        if (magicEventListener != null && chatId != null) {
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                    .getReference("chats")
+                    .child(chatId)
+                    .child("magic_event")
+                    .removeEventListener(magicEventListener);
         }
     }
 }
