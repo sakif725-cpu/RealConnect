@@ -39,13 +39,16 @@ public class WhipEffectManager {
     public static void triggerWhip(Context context, View targetView) {
         if (!isWhipEnabled(context)) return;
 
-        // 1. Play synthesized whip crack audio
-        playWhipSound();
+        // 1. Render dynamic visible whip rope overlay across screen
+        if (context instanceof android.app.Activity && targetView != null) {
+            WhipOverlayView.show((android.app.Activity) context, targetView);
+        }
 
-        // 2. Play haptic feedback
+        // 2. Play synthesized whip crack audio & haptics
+        playWhipSound();
         playHaptic(context);
 
-        // 3. Play visual whip animation
+        // 3. Play avatar physics reaction
         if (targetView != null) {
             animateWhip(targetView);
         }
