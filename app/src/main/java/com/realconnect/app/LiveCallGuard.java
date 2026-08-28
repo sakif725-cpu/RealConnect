@@ -155,6 +155,19 @@ public class LiveCallGuard {
         }
 
         textSummary.setText(result.getSummary());
+        if (result.getListeningDurationSeconds() > 0) {
+            textSummary.setText(result.getSummary() + "\n(Based on " + result.getListeningDurationSeconds() + "s of analyzed live conversation)");
+        }
+
+        if (!result.getFlaggedKeywords().isEmpty()) {
+            TextView tvKeywords = new TextView(activity);
+            tvKeywords.setText("🚩 High-Risk Keywords Detected: " + String.join(", ", result.getFlaggedKeywords()));
+            tvKeywords.setTextColor(Color.parseColor("#FCA5A5"));
+            tvKeywords.setTextSize(13);
+            tvKeywords.setPadding(0, 8, 0, 4);
+            layoutList.addView(tvKeywords, 0);
+        }
+
         textRecommendation.setText(result.getRecommendation());
 
         view.findViewById(R.id.btn_dismiss_risk_modal).setOnClickListener(v -> dialog.dismiss());

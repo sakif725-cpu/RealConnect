@@ -67,6 +67,7 @@ public class CallingActivity extends AppCompatActivity {
     private String targetPhone;
     private boolean isIncoming;
     private LiveRiskResult lastRiskResult;
+    private ContinuousCallAiScanner aiScanner;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -247,41 +248,63 @@ public class CallingActivity extends AppCompatActivity {
             controlsContainer.setVisibility(View.VISIBLE);
             running = true;
             runTimer();
-            performVoiceAiAnalysis(false);
+            startContinuousAiListening();
         });
     }
 
-    private void performVoiceAiAnalysis(boolean showModalOnFinish) {
-        textAiStatus.setText("AI: SCANNING LIVE CALL...");
-        textAiStatus.setTextColor(Color.WHITE);
-        if (showModalOnFinish) {
-            Toast.makeText(this, "AI Guard: Analyzing live call risk...", Toast.LENGTH_SHORT).show();
+    private void startContinuousAiListening() {
+        if (aiScanner != null) {
+            aiScanner.stop();
         }
 
         boolean isSpamPreFlagged = getIntent().getBooleanExtra("IS_SPAM", false);
         String callerName = getIntent().getStringExtra("CONTACT_NAME");
 
-        LiveCallGuard.assessCallRisk(this, targetPhone, callerName, isSpamPreFlagged, result -> {
-            lastRiskResult = result;
-            if (isFinishing() || isDestroyed()) return;
-
-            if (result.getLevel() == LiveRiskResult.Level.HIGH) {
-                textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%)");
-                textAiStatus.setTextColor(Color.parseColor("#EF4444"));
-                textSpamWarning.setVisibility(View.VISIBLE);
-                textSpamWarning.setText("⚠ " + result.getSummary().toUpperCase());
-            } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
-                textAiStatus.setText("AI: MODERATE RISK (" + result.getRiskScore() + "%)");
-                textAiStatus.setTextColor(Color.parseColor("#EAB308"));
-            } else {
-                textAiStatus.setText("AI: LOW RISK • SAFE (5%)");
-                textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+        aiScanner = new ContinuousCallAiScanner(this, targetPhone, callerName, isSpamPreFlagged, new ContinuousCallAiScanner.ScanListener() {
+            @Override
+            public void onListeningTick(int secondsElapsed, int targetSeconds, String statusText) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (lastRiskResult == null || !lastRiskResult.isContextEvaluated()) {
+                        textAiStatus.setText(statusText);
+                        textAiStatus.setTextColor(Color.WHITE);
+                    }
+                });
             }
 
-            if (showModalOnFinish) {
-                LiveCallGuard.showLiveRiskSheet(CallingActivity.this, result);
+            @Override
+            public void onRiskUpdated(LiveRiskResult result) {
+                runOnUiThread(() -> {
+                    lastRiskResult = result;
+                    if (isFinishing() || isDestroyed()) return;
+
+                    if (result.getLevel() == LiveRiskResult.Level.HIGH) {
+                        textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%) • " + result.getListeningDurationSeconds() + "s CONTEXT");
+                        textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                        textSpamWarning.setVisibility(View.VISIBLE);
+                        textSpamWarning.setText("⚠ " + result.getSummary().toUpperCase());
+                    } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
+                        textAiStatus.setText("AI: MODERATE RISK (" + result.getRiskScore() + "%) • " + result.getListeningDurationSeconds() + "s CONTEXT");
+                        textAiStatus.setTextColor(Color.parseColor("#EAB308"));
+                    } else {
+                        textAiStatus.setText("AI: LOW RISK • SAFE (" + result.getRiskScore() + "%)");
+                        textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+                    }
+                });
             }
         });
+
+        aiScanner.start();
+    }
+
+    private void performVoiceAiAnalysis(boolean showModalOnFinish) {
+        if (lastRiskResult != null && lastRiskResult.isContextEvaluated()) {
+            if (showModalOnFinish) {
+                LiveCallGuard.showLiveRiskSheet(CallingActivity.this, lastRiskResult);
+            }
+        } else {
+            Toast.makeText(this, "AI is currently capturing 30s of conversation to evaluate risk context accurately...", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void setupSignaling() {
@@ -532,6 +555,10 @@ public class CallingActivity extends AppCompatActivity {
         super.onDestroy();
         running = false;
         stopRinging();
+        if (aiScanner != null) {
+            aiScanner.stop();
+            aiScanner = null;
+        }
         CallRecordingHelper.getInstance().stopRecording();
         saveCallLogEntry();
         if (signalingClient != null) {
