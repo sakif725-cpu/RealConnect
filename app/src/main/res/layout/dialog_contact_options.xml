@@ -1,25 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:background="@android:color/transparent"
-    android:paddingHorizontal="32dp"
-    android:paddingVertical="24dp">
+    android:padding="16dp">
 
-    <!-- Floating Dialog Box with Shadow -->
+    <!-- Compact Floating Dialog Box with Shadow -->
     <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         app:cardBackgroundColor="#FFFFFF"
         app:cardCornerRadius="16dp"
-        app:cardElevation="12dp"
+        app:cardElevation="10dp"
         app:strokeColor="#E2E8F0"
         app:strokeWidth="1dp">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingVertical="6dp">
@@ -34,23 +33,23 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="14dp">
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@drawable/ic_copy"
                     app:tint="#334155" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:text="Copy Phone Number"
                     android:textColor="#1E293B"
-                    android:textSize="15sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <View
@@ -68,23 +67,23 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="14dp">
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@drawable/ic_share"
                     app:tint="#334155" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:text="Share Contact"
                     android:textColor="#1E293B"
-                    android:textSize="15sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <View
@@ -102,23 +101,23 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="14dp">
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@drawable/ic_edit"
                     app:tint="#334155" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:text="Edit Contact"
                     android:textColor="#1E293B"
-                    android:textSize="15sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <View
@@ -136,13 +135,13 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="14dp">
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp">
 
                 <ImageView
                     android:id="@+id/img_block_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@drawable/ic_block"
                     app:tint="#D97706" />
 
@@ -150,11 +149,11 @@
                     android:id="@+id/text_block_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:text="Block Number"
                     android:textColor="#D97706"
-                    android:textSize="15sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <View
@@ -172,23 +171,23 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="14dp">
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@drawable/ic_delete"
                     app:tint="#EF4444" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:text="Delete Contact"
                     android:textColor="#EF4444"
-                    android:textSize="15sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
         </LinearLayout>
