@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Build;
 import android.os.VibrationEffect;
@@ -21,7 +22,7 @@ public class WhipEffectManager {
     private static final String KEY_WHIP_ENABLED = "magic_whip_enabled";
 
     private static final ExecutorService audioExecutor = Executors.newSingleThreadExecutor();
-    private static short[] synthesizedBeatingBuffer = null;
+    private static short[] synthesizedWhipBuffer = null;
 
     public static boolean isWhipEnabled(Context context) {
         if (context == null) return true;
@@ -38,16 +39,16 @@ public class WhipEffectManager {
     public static void triggerWhip(Context context, View targetView) {
         if (!isWhipEnabled(context)) return;
 
-        // 1. Render 3-Hit Beating Combo Visual Overlay
+        // 1. Render dynamic visible whip rope overlay across screen
         if (context instanceof android.app.Activity && targetView != null) {
             WhipOverlayView.show((android.app.Activity) context, targetView);
         }
 
-        // 2. Play 3-Hit Rhythmic Beating Audio & Haptics
+        // 2. Play synthesized whip crack audio & haptics
         playWhipSound();
         playHaptic(context);
 
-        // 3. Play 3-Hit Beating Reaction on Avatar
+        // 3. Play avatar physics reaction
         if (targetView != null) {
             animateWhip(targetView);
         }
@@ -56,45 +57,33 @@ public class WhipEffectManager {
     public static void animateWhip(View view) {
         if (view == null) return;
 
-        // Hit 1: Left Whip Strike (Tilt right & recoil)
+        // Stage 1: Quick Windup (tilt back & stretch)
         view.animate()
-                .rotation(22f)
-                .translationX(18f)
-                .scaleX(1.15f)
-                .scaleY(0.88f)
-                .setDuration(90)
+                .rotation(-24f)
+                .translationX(-18f)
+                .scaleX(0.9f)
+                .scaleY(1.1f)
+                .setDuration(75)
                 .setInterpolator(new AccelerateDecelerateInterpolator())
                 .withEndAction(() -> {
-                    // Hit 2: Counter Right Whip Strike (Whack to the left)
+                    // Stage 2: Fast Whipping Snap (forward slash & squash)
                     view.animate()
-                            .rotation(-28f)
-                            .translationX(-22f)
-                            .scaleX(0.88f)
-                            .scaleY(1.15f)
-                            .setDuration(120)
+                            .rotation(36f)
+                            .translationX(28f)
+                            .scaleX(1.3f)
+                            .scaleY(0.72f)
+                            .setDuration(95)
                             .setInterpolator(new AccelerateDecelerateInterpolator())
                             .withEndAction(() -> {
-                                // Hit 3: Heavy Overhead Power Slam (Squash down & explosive recoil)
+                                // Stage 3: Elastic Rebound Vibration back to neutral
                                 view.animate()
                                         .rotation(0f)
                                         .translationX(0f)
-                                        .translationY(16f)
-                                        .scaleX(1.35f)
-                                        .scaleY(0.68f)
-                                        .setDuration(130)
-                                        .setInterpolator(new AccelerateDecelerateInterpolator())
-                                        .withEndAction(() -> {
-                                            // Final Elastic Spring Rebound to neutral
-                                            view.animate()
-                                                    .rotation(0f)
-                                                    .translationX(0f)
-                                                    .translationY(0f)
-                                                    .scaleX(1.0f)
-                                                    .scaleY(1.0f)
-                                                    .setDuration(320)
-                                                    .setInterpolator(new OvershootInterpolator(4.2f))
-                                                    .start();
-                                        }).start();
+                                        .scaleX(1.0f)
+                                        .scaleY(1.0f)
+                                        .setDuration(260)
+                                        .setInterpolator(new OvershootInterpolator(3.8f))
+                                        .start();
                             }).start();
                 }).start();
     }
@@ -103,67 +92,62 @@ public class WhipEffectManager {
         try {
             Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
             if (vibrator != null && vibrator.hasVibrator()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    long[] timings = new long[]{0, 30, 110, 40, 130, 70};
-                    int[] amplitudes = new int[]{0, 180, 0, 220, 0, 255};
-                    vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK));
                 } else {
-                    vibrator.vibrate(new long[]{0, 30, 110, 40, 130, 70}, -1);
+                    vibrator.vibrate(40);
                 }
             }
         } catch (Exception ignored) {}
     }
 
-    private static synchronized short[] getOrCreateBeatingBuffer() {
-        if (synthesizedBeatingBuffer != null) return synthesizedBeatingBuffer;
+    private static synchronized short[] getOrCreateWhipBuffer() {
+        if (synthesizedWhipBuffer != null) return synthesizedWhipBuffer;
 
         int sampleRate = 44100;
-        int totalSamples = (int) (sampleRate * 0.70); // 700ms total beating combo
-        short[] buffer = new short[totalSamples];
+        int numSamples = (int) (sampleRate * 0.32); // 320ms duration
+        short[] buffer = new short[numSamples];
         Random random = new Random();
 
-        // Helper to synthesize a whip crack burst at a given start sample
-        int[] hitTimes = new int[]{
-                (int) (sampleRate * 0.06), // Hit 1 at ~60ms
-                (int) (sampleRate * 0.25), // Hit 2 at ~250ms
-                (int) (sampleRate * 0.46)  // Hit 3 heavy slam at ~460ms
-        };
-
-        for (int h = 0; h < hitTimes.length; h++) {
-            int start = hitTimes[h];
-            boolean isHeavy = (h == 2);
-            int hitDur = (int) (sampleRate * (isHeavy ? 0.22 : 0.16));
-
-            for (int i = 0; i < hitDur && (start + i) < totalSamples; i++) {
-                double t = (double) i / hitDur;
-                double sound;
-
-                if (i < (int) (sampleRate * 0.025)) {
-                    // Sudden sharp crack impulse
-                    double noise = (random.nextDouble() * 2.0 - 1.0);
-                    double impulse = (i % 2 == 0 ? 1.0 : -1.0);
-                    sound = (noise * 0.75 + impulse * 0.25) * (isHeavy ? 1.0 : 0.8);
-                } else {
-                    // Exponential snap decay + bass thump for heavy hit
-                    double decay = Math.exp((isHeavy ? -9.0 : -14.0) * t);
-                    double noise = (random.nextDouble() * 2.0 - 1.0) * decay;
-                    double bassThump = isHeavy ? (Math.sin(2.0 * Math.PI * 120.0 * (double) i / sampleRate) * decay * 0.5) : 0;
-                    sound = (noise + bassThump) * (isHeavy ? 0.95 : 0.75);
-                }
-
-                int sampleVal = (int) (sound * Short.MAX_VALUE);
-                buffer[start + i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sampleVal));
-            }
+        // 0.00s -> 0.10s : Rising whoosh windup
+        int whooshSamples = (int) (sampleRate * 0.10);
+        for (int i = 0; i < whooshSamples; i++) {
+            double t = (double) i / whooshSamples;
+            double freq = 200.0 + (900.0 * t * t);
+            double sin = Math.sin(2.0 * Math.PI * freq * (double) i / sampleRate);
+            double noise = (random.nextDouble() * 2.0 - 1.0) * 0.4;
+            double env = t * t * 0.5;
+            buffer[i] = (short) ((sin + noise) * env * Short.MAX_VALUE);
         }
 
-        synthesizedBeatingBuffer = buffer;
-        return synthesizedBeatingBuffer;
+        // 0.10s -> 0.13s : High energy whip crack impact
+        int snapStart = whooshSamples;
+        int snapSamples = (int) (sampleRate * 0.03);
+        for (int i = 0; i < snapSamples; i++) {
+            double t = (double) i / snapSamples;
+            double noise = (random.nextDouble() * 2.0 - 1.0);
+            double impulse = (i % 2 == 0 ? 1.0 : -1.0) * (1.0 - t * 0.5);
+            buffer[snapStart + i] = (short) ((noise * 0.7 + impulse * 0.3) * Short.MAX_VALUE);
+        }
+
+        // 0.13s -> 0.32s : Exponential decay snap tail
+        int tailStart = snapStart + snapSamples;
+        int tailSamples = numSamples - tailStart;
+        for (int i = 0; i < tailSamples; i++) {
+            double t = (double) i / tailSamples;
+            double decay = Math.exp(-12.0 * t);
+            double noise = (random.nextDouble() * 2.0 - 1.0) * decay;
+            buffer[tailStart + i] = (short) (noise * Short.MAX_VALUE * 0.85);
+        }
+
+        synthesizedWhipBuffer = buffer;
+        return synthesizedWhipBuffer;
     }
 
     public static void playWhipSound() {
         audioExecutor.execute(() -> {
             try {
-                short[] audioData = getOrCreateBeatingBuffer();
+                short[] audioData = getOrCreateWhipBuffer();
                 int bufferSize = audioData.length * 2;
 
                 AudioTrack track = new AudioTrack.Builder()
@@ -183,8 +167,9 @@ public class WhipEffectManager {
                 track.write(audioData, 0, audioData.length);
                 track.play();
 
+                // Release after playing
                 try {
-                    Thread.sleep(750);
+                    Thread.sleep(350);
                 } catch (InterruptedException ignored) {}
                 track.release();
             } catch (Exception ignored) {}
