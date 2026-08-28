@@ -60,7 +60,7 @@ public class FraudIntelligenceEngine {
         boolean hasImpersonation = false;
         boolean hasUrgency = false;
 
-        String text = (dialogueText != null) ? dialogueText.toLowerCase(Locale.ROOT) : "";
+        String text = (dialogueText != null) ? dialogueText.toLowerCase(Locale.ROOT).trim() : "";
 
         // Check Financial triggers
         for (String kw : FINANCIAL_KEYWORDS) {
@@ -127,53 +127,68 @@ public class FraudIntelligenceEngine {
             assessment.detectedIndicators.add("• Incoming phone number has active spam/fraud reports");
         }
 
-        // Base risk if unknown caller
-        if (!isKnownContact && score == 0) {
-            score = 35;
-            assessment.detectedIndicators.add("• Unknown caller (not in contacts)");
-        } else if (isKnownContact && score == 0) {
-            score = 5;
-            assessment.detectedIndicators.add("• Trusted saved contact with clean conversational history");
-        }
-
-        assessment.fraudScore = Math.min(Math.max(score, 5), 99);
-
         // Classify Risk Level & Generate Targeted Recommendations
         if (hasFinancial && hasLottery) {
             assessment.riskLevel = LiveRiskResult.Level.HIGH;
+            assessment.fraudScore = Math.min(score, 99);
             assessment.threatCategory = "CRITICAL: LOTTERY PRIZE & CVV FRAUD";
             assessment.detailedSummary = "High-severity financial scam: Caller is claiming a fake lottery prize to extract your bank account number and 3-digit card CVV.";
             assessment.actionRecommendation = "DO NOT give your CVV, card numbers, or bank details. Legitimate rewards NEVER require your card security code. Hang up immediately.";
         } else if (hasOtp) {
             assessment.riskLevel = LiveRiskResult.Level.HIGH;
+            assessment.fraudScore = Math.min(score, 99);
             assessment.threatCategory = "CRITICAL: OTP & CREDENTIAL THEFT";
             assessment.detailedSummary = "Unauthorized account takeover attempt: Caller is actively requesting an OTP or authentication PIN.";
             assessment.actionRecommendation = "NEVER share your OTP with anyone, even if they claim to be official support. Hang up and report the number.";
         } else if (hasFinancial) {
             assessment.riskLevel = LiveRiskResult.Level.HIGH;
+            assessment.fraudScore = Math.min(score, 99);
             assessment.threatCategory = "HIGH RISK: FINANCIAL DATA HARVESTING";
             assessment.detailedSummary = "Caller is soliciting private banking, debit/credit card, or PIN credentials.";
             assessment.actionRecommendation = "Banks and authentic companies will never ask for your card details or PIN over a phone call.";
         } else if (hasLottery || (hasImpersonation && hasUrgency)) {
             assessment.riskLevel = LiveRiskResult.Level.HIGH;
+            assessment.fraudScore = Math.min(score, 99);
             assessment.threatCategory = "HIGH RISK: SOCIAL ENGINEERING / PHISHING";
             assessment.detailedSummary = "Caller is using false authority claims and artificial urgency to manipulate you into taking action.";
             assessment.actionRecommendation = "Verify the organization through their official website. Do not transfer funds or follow caller instructions.";
         } else if (isBotVoice || isSpamNumber) {
             assessment.riskLevel = LiveRiskResult.Level.HIGH;
+            assessment.fraudScore = Math.min(score, 99);
             assessment.threatCategory = isBotVoice ? "HIGH RISK: SYNTHETIC AI ROBOCALL" : "HIGH RISK: SPAM / TELEMARKETING";
             assessment.detailedSummary = "Suspicious caller profile with active spam/bot flags detected.";
             assessment.actionRecommendation = "Exercise extreme caution and avoid sharing personal data.";
+        } else if (text.isEmpty()) {
+            // Dialogue is currently being captured
+            assessment.riskLevel = isKnownContact ? LiveRiskResult.Level.LOW : LiveRiskResult.Level.MEDIUM;
+            assessment.fraudScore = isKnownContact ? 5 : 30;
+            assessment.threatCategory = "AI MONITORING: LISTENING TO LIVE AUDIO";
+            assessment.detailedSummary = isKnownContact ?
+                    "Verified Saved Contact • Listening for conversation triggers..." :
+                    "Unknown Caller • Monitoring incoming speech for scam patterns...";
+            assessment.actionRecommendation = "AI Guard is actively monitoring the live call audio stream. Continue conversation normally.";
+            if (isKnownContact) {
+                assessment.detectedIndicators.add("• Number matches saved contact in phonebook");
+            } else {
+                assessment.detectedIndicators.add("• Caller is not in your contacts list");
+            }
+            assessment.detectedIndicators.add("• Real-time speech stream active");
         } else if (!isKnownContact) {
             assessment.riskLevel = LiveRiskResult.Level.MEDIUM;
+            assessment.fraudScore = 35;
             assessment.threatCategory = "MODERATE RISK: UNKNOWN CALLER";
             assessment.detailedSummary = "Caller is not in your contacts. Natural voice verified with no scam triggers detected.";
             assessment.actionRecommendation = "Normal conversation so far. Continue with standard caution.";
+            assessment.detectedIndicators.add("• Natural human voice verified");
+            assessment.detectedIndicators.add("• No financial or lottery triggers found in dialogue");
         } else {
             assessment.riskLevel = LiveRiskResult.Level.LOW;
+            assessment.fraudScore = 5;
             assessment.threatCategory = "LOW RISK: TRUSTED CONTACT";
             assessment.detailedSummary = "Verified contact from your phonebook. Voice and conversation are clean.";
             assessment.actionRecommendation = "Safe call. No risk factors identified.";
+            assessment.detectedIndicators.add("• Saved contact in your phonebook");
+            assessment.detectedIndicators.add("• Clean conversational history");
         }
 
         return assessment;
