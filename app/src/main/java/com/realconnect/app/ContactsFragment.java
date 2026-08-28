@@ -22,6 +22,7 @@ public class ContactsFragment extends Fragment {
 
     private ContactAdapter adapter;
     private EditText editSearch;
+    private View layoutEmptyContacts;
     private ContactRepository.OnContactsChangedListener contactsListener;
 
     @Nullable
@@ -31,8 +32,12 @@ public class ContactsFragment extends Fragment {
 
         RecyclerView recyclerView = view.findViewById(R.id.recycler_contacts);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        layoutEmptyContacts = view.findViewById(R.id.layout_empty_contacts);
 
         List<Contact> contactList = ContactRepository.getInstance(requireContext()).getContacts();
+        if (layoutEmptyContacts != null) {
+            layoutEmptyContacts.setVisibility(contactList.isEmpty() ? View.VISIBLE : View.GONE);
+        }
 
         adapter = new ContactAdapter(contactList, new ContactAdapter.OnContactActionListener() {
             @Override
@@ -206,6 +211,9 @@ public class ContactsFragment extends Fragment {
         if (!isAdded() || getContext() == null || adapter == null) return;
         List<Contact> updatedList = ContactRepository.getInstance(requireContext()).getContacts();
         adapter.setContacts(updatedList);
+        if (layoutEmptyContacts != null) {
+            layoutEmptyContacts.setVisibility(updatedList.isEmpty() ? View.VISIBLE : View.GONE);
+        }
         if (editSearch != null && !TextUtils.isEmpty(editSearch.getText())) {
             adapter.getFilter().filter(editSearch.getText());
         }

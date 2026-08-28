@@ -73,4 +73,38 @@
         android:paddingBottom="80dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+    <!-- Empty State -->
+    <LinearLayout
+        android:id="@+id/layout_empty_contacts"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_contacts"
+            app:tint="#94A3B8" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="No contacts yet"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tap the + icon above to add a contact"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
