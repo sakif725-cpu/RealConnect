@@ -150,6 +150,7 @@ public class CallingActivity extends AppCompatActivity {
             controlsContainer.setVisibility(View.VISIBLE);
             textCallTimer.setText("Calling...");
             textAiStatus.setText("AI GUARD: ACTIVE");
+            startContinuousAiListening();
             
             if (checkPermissions()) {
                 startCallFlow();
@@ -423,6 +424,7 @@ public class CallingActivity extends AppCompatActivity {
         stopRinging();
         btnAcceptCall.setVisibility(View.GONE);
         textCallTimer.setText("Connecting...");
+        startContinuousAiListening();
         if (checkPermissions()) {
             startCallFlow();
         } else {
