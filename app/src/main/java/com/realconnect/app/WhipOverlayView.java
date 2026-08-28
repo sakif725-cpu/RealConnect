@@ -12,17 +12,18 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 
 public class WhipOverlayView extends View {
 
     private float progress = 0f;
     private PointF targetPoint = new PointF();
-    private PointF startPoint = new PointF();
     private Paint ropePaint;
     private Paint handlePaint;
     private Paint tipPaint;
     private Paint sparkPaint;
+    private Paint slashPaint;
+    private Paint flashPaint;
     private Path ropePath = new Path();
 
     public WhipOverlayView(Context context) {
@@ -31,29 +32,32 @@ public class WhipOverlayView extends View {
     }
 
     private void init() {
-        // Thick braided leather rope
         ropePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        ropePaint.setColor(Color.parseColor("#92400E")); // Warm saddle leather brown
+        ropePaint.setColor(Color.parseColor("#92400E")); // Braided leather
         ropePaint.setStyle(Paint.Style.STROKE);
         ropePaint.setStrokeCap(Paint.Cap.ROUND);
         ropePaint.setStrokeJoin(Paint.Join.ROUND);
 
-        // Handle grip paint
         handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        handlePaint.setColor(Color.parseColor("#451A03")); // Deep dark wood / leather
+        handlePaint.setColor(Color.parseColor("#451A03")); // Dark polished wood/leather
         handlePaint.setStyle(Paint.Style.STROKE);
         handlePaint.setStrokeCap(Paint.Cap.ROUND);
 
-        // Cracker / red popper tip
         tipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        tipPaint.setColor(Color.parseColor("#EF4444")); // Red popper cracker string
+        tipPaint.setColor(Color.parseColor("#EF4444")); // Red cracker
         tipPaint.setStyle(Paint.Style.STROKE);
         tipPaint.setStrokeCap(Paint.Cap.ROUND);
 
-        // Golden spark particles
         sparkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         sparkPaint.setColor(Color.parseColor("#F59E0B"));
         sparkPaint.setStyle(Paint.Style.FILL);
+
+        slashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        slashPaint.setStyle(Paint.Style.STROKE);
+        slashPaint.setStrokeCap(Paint.Cap.ROUND);
+
+        flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        flashPaint.setStyle(Paint.Style.FILL);
     }
 
     public static void show(Activity activity, View targetView) {
@@ -68,29 +72,21 @@ public class WhipOverlayView extends View {
         );
         decor.addView(overlay, lp);
 
-        // Calculate target center coordinates relative to screen/decor view
         int[] targetLoc = new int[2];
         targetView.getLocationInWindow(targetLoc);
         float tx = targetLoc[0] + targetView.getWidth() / 2f;
         float ty = targetLoc[1] + targetView.getHeight() / 2f;
 
-        overlay.startAnimation(tx, ty, decor);
+        overlay.startBeatingCombo(tx, ty, decor);
     }
 
-    private void startAnimation(float tx, float ty, ViewGroup parent) {
+    private void startBeatingCombo(float tx, float ty, ViewGroup parent) {
         this.targetPoint.set(tx, ty);
 
         post(() -> {
-            int w = getWidth();
-            int h = getHeight();
-            if (w == 0 || h == 0) return;
-
-            // Start whip from bottom-left or side below
-            this.startPoint.set(w * 0.15f, h * 0.75f);
-
             ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(420); // Fast snappy lash
-            animator.setInterpolator(new DecelerateInterpolator(1.4f));
+            animator.setDuration(680); // 3 rapid-fire beating strikes in 680ms
+            animator.setInterpolator(new LinearInterpolator());
             animator.addUpdateListener(animation -> {
                 progress = (float) animation.getAnimatedValue();
                 invalidate();
@@ -112,7 +108,36 @@ public class WhipOverlayView extends View {
         super.onDraw(canvas);
         if (progress <= 0f || progress >= 1f) return;
 
-        float alpha = progress < 0.75f ? 1.0f : (1.0f - (progress - 0.75f) / 0.25f);
+        int w = getWidth();
+        int h = getHeight();
+        if (w == 0 || h == 0) return;
+
+        float density = getResources().getDisplayMetrics().density;
+        float tx = targetPoint.x;
+        float ty = targetPoint.y;
+
+        // Strike 1: Progress 0.00 -> 0.33 (Fast Left Swing & Whack)
+        if (progress < 0.33f) {
+            float p = progress / 0.33f;
+            PointF start = new PointF(w * 0.10f, h * 0.70f);
+            drawSingleWhipStrike(canvas, start, tx, ty, p, -40f, density, Color.parseColor("#EF4444"), true);
+        }
+        // Strike 2: Progress 0.33 -> 0.66 (Fast Counter Right Whack)
+        else if (progress < 0.66f) {
+            float p = (progress - 0.33f) / 0.33f;
+            PointF start = new PointF(w * 0.90f, h * 0.65f);
+            drawSingleWhipStrike(canvas, start, tx, ty, p, -140f, density, Color.parseColor("#F59E0B"), false);
+        }
+        // Strike 3: Progress 0.66 -> 1.00 (Heavy Overhead Power Slam & Mega Shockwave)
+        else {
+            float p = (progress - 0.66f) / 0.34f;
+            PointF start = new PointF(w * 0.45f, h * 0.05f);
+            drawHeavyOverheadStrike(canvas, start, tx, ty, p, density);
+        }
+    }
+
+    private void drawSingleWhipStrike(Canvas canvas, PointF start, float tx, float ty, float p, float angleDeg, float density, int slashColor, boolean isLeft) {
+        float alpha = p < 0.85f ? 1.0f : (1.0f - (p - 0.85f) / 0.15f);
         int alphaInt = (int) (alpha * 255);
 
         ropePaint.setAlpha(alphaInt);
@@ -120,115 +145,138 @@ public class WhipOverlayView extends View {
         tipPaint.setAlpha(alphaInt);
         sparkPaint.setAlpha(alphaInt);
 
-        float density = getResources().getDisplayMetrics().density;
-        float handleLen = 50 * density;
+        // 1. Draw Grip Handle
+        float handleLen = 45 * density;
+        float hRad = (float) Math.toRadians(angleDeg);
+        float hx = start.x + (float) Math.cos(hRad) * handleLen;
+        float hy = start.y + (float) Math.sin(hRad) * handleLen;
 
-        // 1. Draw Whip Handle (from startPoint pointing slightly up-right)
-        float hAngle = (float) Math.toRadians(-45);
-        float hx = startPoint.x + (float) Math.cos(hAngle) * handleLen;
-        float hy = startPoint.y + (float) Math.sin(hAngle) * handleLen;
+        handlePaint.setStrokeWidth(9 * density);
+        canvas.drawLine(start.x, start.y, hx, hy, handlePaint);
 
-        handlePaint.setStrokeWidth(10 * density);
-        canvas.drawLine(startPoint.x, startPoint.y, hx, hy, handlePaint);
-
-        // Gold ferrule ring on handle
+        // Ferrule ring
         Paint ferrule = new Paint(Paint.ANTI_ALIAS_FLAG);
         ferrule.setColor(Color.parseColor("#FBBF24"));
-        ferrule.setStrokeWidth(12 * density);
-        ferrule.setStrokeCap(Paint.Cap.BUTT);
         ferrule.setAlpha(alphaInt);
-        canvas.drawCircle(hx, hy, 5 * density, ferrule);
+        canvas.drawCircle(hx, hy, 4.5f * density, ferrule);
 
-        // 2. Draw Whipping Rope Curve (Physics Wave Propagation)
+        // 2. Draw Whip Lash Path
         ropePath.reset();
         ropePath.moveTo(hx, hy);
 
-        float sx = hx;
-        float sy = hy;
-        float tx = targetPoint.x;
-        float ty = targetPoint.y;
+        float hitThreshold = 0.50f;
+        if (p < hitThreshold) {
+            float pNorm = p / hitThreshold;
+            float tipX = hx + (tx - hx) * pNorm;
+            float tipY = hy + (ty - hy) * pNorm;
 
-        float currentTipX;
-        float currentTipY;
+            float curveSide = isLeft ? -1 : 1;
+            float waveApexX = hx + (tx - hx) * 0.5f + (curveSide * (1f - pNorm) * 110 * density);
+            float waveApexY = hy + (ty - hy) * 0.3f - (float) Math.sin(pNorm * Math.PI) * 140 * density;
 
-        if (progress < 0.55f) {
-            // Phase 1: The whip uncurls and propels forward in a dynamic loop
-            float pNorm = progress / 0.55f;
-            currentTipX = sx + (tx - sx) * pNorm;
-            currentTipY = sy + (ty - sy) * pNorm;
-
-            // Traveling wave apex loop
-            float waveApexX = sx + (tx - sx) * 0.5f - (1f - pNorm) * 120 * density;
-            float waveApexY = sy + (ty - sy) * 0.3f - (float) Math.sin(pNorm * Math.PI) * 180 * density;
-
-            float cp1X = sx + (waveApexX - sx) * 0.6f;
-            float cp1Y = sy - 80 * density * (1f - pNorm);
-
-            ropePath.cubicTo(cp1X, cp1Y, waveApexX, waveApexY, currentTipX, currentTipY);
-            ropePaint.setStrokeWidth(6 * density);
+            ropePath.cubicTo(hx + (waveApexX - hx) * 0.5f, hy - 60 * density, waveApexX, waveApexY, tipX, tipY);
+            ropePaint.setStrokeWidth(5 * density);
             canvas.drawPath(ropePath, ropePaint);
 
-            // Tip popper
             tipPaint.setStrokeWidth(3 * density);
-            canvas.drawLine(currentTipX, currentTipY, currentTipX + 15 * density, currentTipY - 10 * density, tipPaint);
-
+            canvas.drawLine(tipX, tipY, tipX + (isLeft ? 14 : -14) * density, tipY - 8 * density, tipPaint);
         } else {
-            // Phase 2: Whip has struck target, vibrating wave decay
-            float pAfter = (progress - 0.55f) / 0.45f;
-            currentTipX = tx;
-            currentTipY = ty;
+            // Hit & Recoil
+            float pAfter = (p - hitThreshold) / (1f - hitThreshold);
+            float waveOffset = (float) Math.sin(pAfter * Math.PI * 4) * (1f - pAfter) * 18 * density;
 
-            float waveOffset = (float) Math.sin(pAfter * Math.PI * 4) * (1f - pAfter) * 25 * density;
-
-            float cp1X = sx + (tx - sx) * 0.35f + waveOffset * 0.6f;
-            float cp1Y = sy + (ty - sy) * 0.25f - 40 * density * (1f - pAfter);
-
-            float cp2X = sx + (tx - sx) * 0.7f - waveOffset;
-            float cp2Y = sy + (ty - sy) * 0.65f + waveOffset;
-
-            ropePath.cubicTo(cp1X, cp1Y, cp2X, cp2Y, currentTipX, currentTipY);
-            ropePaint.setStrokeWidth(Math.max(2 * density, (5 - pAfter * 3) * density));
+            ropePath.cubicTo(
+                    hx + (tx - hx) * 0.35f + waveOffset,
+                    hy + (ty - hy) * 0.25f - 30 * density * (1f - pAfter),
+                    hx + (tx - hx) * 0.7f - waveOffset,
+                    hy + (ty - hy) * 0.65f + waveOffset,
+                    tx, ty
+            );
+            ropePaint.setStrokeWidth(Math.max(2 * density, (4.5f - pAfter * 2.5f) * density));
             canvas.drawPath(ropePath, ropePaint);
 
-            // Red cracker at tip
-            tipPaint.setStrokeWidth(2.5f * density);
-            canvas.drawLine(tx, ty, tx + 18 * density * (1f - pAfter), ty + 12 * density * (1f - pAfter), tipPaint);
+            // Energy Slash Line across avatar
+            slashPaint.setColor(slashColor);
+            slashPaint.setStrokeWidth(4 * density * (1f - pAfter));
+            slashPaint.setAlpha((int) ((1f - pAfter) * 255));
+            float slashSpan = 35 * density;
+            float slashAngle = isLeft ? 35 : -35;
+            float sRad = (float) Math.toRadians(slashAngle);
+            canvas.drawLine(
+                    tx - (float) Math.cos(sRad) * slashSpan,
+                    ty - (float) Math.sin(sRad) * slashSpan,
+                    tx + (float) Math.cos(sRad) * slashSpan,
+                    ty + (float) Math.sin(sRad) * slashSpan,
+                    slashPaint
+            );
 
-            // 3. Impact Flash & Sparks on Avatar
-            if (progress >= 0.52f && progress <= 0.85f) {
-                float sparkProg = (progress - 0.52f) / 0.33f;
-                float sparkRadius = sparkProg * 45 * density;
-                float sparkAlpha = (1f - sparkProg);
+            // Sparks
+            drawSparks(canvas, tx, ty, pAfter, 8, 38 * density, density);
+        }
+    }
 
-                sparkPaint.setAlpha((int) (sparkAlpha * 255));
+    private void drawHeavyOverheadStrike(Canvas canvas, PointF start, float tx, float ty, float p, float density) {
+        float alpha = p < 0.80f ? 1.0f : (1.0f - (p - 0.80f) / 0.20f);
+        int alphaInt = (int) (alpha * 255);
 
-                // Center impact flash
-                Paint flashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                flashPaint.setColor(Color.parseColor("#FEF08A"));
-                flashPaint.setAlpha((int) (sparkAlpha * 200));
-                canvas.drawCircle(tx, ty, (1f - sparkProg) * 22 * density, flashPaint);
+        ropePaint.setAlpha(alphaInt);
+        handlePaint.setAlpha(alphaInt);
+        sparkPaint.setAlpha(alphaInt);
 
-                // Radiating burst sparks
-                int numSparks = 8;
-                for (int i = 0; i < numSparks; i++) {
-                    double angle = (i * (2 * Math.PI / numSparks)) + (sparkProg * 0.5);
-                    float px = tx + (float) Math.cos(angle) * sparkRadius;
-                    float py = ty + (float) Math.sin(angle) * sparkRadius;
-                    float pSize = Math.max(1f, (1f - sparkProg) * 4 * density);
-                    canvas.drawCircle(px, py, pSize, sparkPaint);
+        float handleLen = 50 * density;
+        float hx = start.x;
+        float hy = start.y + handleLen;
 
-                    // Spark line streaks
-                    Paint streakPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    streakPaint.setColor(Color.parseColor("#F59E0B"));
-                    streakPaint.setStrokeWidth(2 * density);
-                    streakPaint.setAlpha((int) (sparkAlpha * 220));
-                    canvas.drawLine(
-                            px - (float) Math.cos(angle) * 6 * density,
-                            py - (float) Math.sin(angle) * 6 * density,
-                            px, py, streakPaint
-                    );
-                }
-            }
+        handlePaint.setStrokeWidth(11 * density);
+        canvas.drawLine(start.x, start.y, hx, hy, handlePaint);
+
+        ropePath.reset();
+        ropePath.moveTo(hx, hy);
+
+        float hitThreshold = 0.45f;
+        if (p < hitThreshold) {
+            float pNorm = p / hitThreshold;
+            float tipX = hx + (tx - hx) * pNorm;
+            float tipY = hy + (ty - hy) * pNorm;
+
+            ropePath.cubicTo(hx + 80 * density * (1f - pNorm), hy + (tipY - hy) * 0.4f, hx - 60 * density * (1f - pNorm), hy + (tipY - hy) * 0.7f, tipX, tipY);
+            ropePaint.setStrokeWidth(7 * density);
+            canvas.drawPath(ropePath, ropePaint);
+        } else {
+            float pAfter = (p - hitThreshold) / (1f - hitThreshold);
+            float recoilWave = (float) Math.sin(pAfter * Math.PI * 5) * (1f - pAfter) * 22 * density;
+
+            ropePath.cubicTo(hx + recoilWave, hy + (ty - hy) * 0.3f, hx - recoilWave, hy + (ty - hy) * 0.7f, tx, ty);
+            ropePaint.setStrokeWidth(Math.max(2 * density, (6 - pAfter * 4) * density));
+            canvas.drawPath(ropePath, ropePaint);
+
+            // Double Shockwave Rings on Heavy Slam
+            flashPaint.setColor(Color.parseColor("#FEF08A"));
+            flashPaint.setAlpha((int) ((1f - pAfter) * 220));
+            canvas.drawCircle(tx, ty, (1f - pAfter) * 30 * density, flashPaint);
+
+            Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            ringPaint.setStyle(Paint.Style.STROKE);
+            ringPaint.setColor(Color.parseColor("#EF4444"));
+            ringPaint.setStrokeWidth(3 * density);
+            ringPaint.setAlpha((int) ((1f - pAfter) * 255));
+            canvas.drawCircle(tx, ty, pAfter * 55 * density, ringPaint);
+
+            // 14 Explosive Sparks
+            drawSparks(canvas, tx, ty, pAfter, 14, 60 * density, density);
+        }
+    }
+
+    private void drawSparks(Canvas canvas, float tx, float ty, float pAfter, int numSparks, float maxRadius, float density) {
+        float sparkRadius = pAfter * maxRadius;
+        float sparkAlpha = (1f - pAfter);
+        sparkPaint.setAlpha((int) (sparkAlpha * 255));
+
+        for (int i = 0; i < numSparks; i++) {
+            double angle = (i * (2 * Math.PI / numSparks)) + (pAfter * 0.6);
+            float px = tx + (float) Math.cos(angle) * sparkRadius;
+            float py = ty + (float) Math.sin(angle) * sparkRadius;
+            canvas.drawCircle(px, py, Math.max(1.5f, (1f - pAfter) * 4.5f * density), sparkPaint);
         }
     }
 }
