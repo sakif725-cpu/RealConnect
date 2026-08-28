@@ -168,55 +168,25 @@ public class ContinuousCallAiScanner {
     }
 
     private LiveRiskResult buildFinalRiskResult(boolean isKnownContact, boolean isSpam, boolean isBot) {
-        int finalScore;
-        LiveRiskResult.Level level;
-        String summary;
-        String recommendation;
-        List<String> indicators = new ArrayList<>();
+        FraudIntelligenceEngine.FraudAssessment assessment = FraudIntelligenceEngine.evaluate("", isKnownContact, isSpam, isBot);
 
-        if (isBot) {
-            finalScore = 92;
-            level = LiveRiskResult.Level.HIGH;
-            summary = "Automated AI Bot / Robocall Detected";
-            recommendation = "Acoustic biomarkers indicate synthetic voice synthesis. Do NOT disclose personal info or bank details.";
-            indicators.add("• Synthetic Voice Signature Detected (Robocall)");
-            indicators.add("• Unnatural vocal frequency consistency");
-            if (isSpam) indicators.add("• Phone number flagged in scam / telemarketing databases");
-        } else if (isSpam) {
-            finalScore = 85;
-            level = LiveRiskResult.Level.HIGH;
-            summary = "High Scam / Telemarketing Risk";
-            recommendation = "This number has previous scam or spam reports. High risk of phishing.";
-            indicators.add("• Flagged Telemarketing or Scam Prefix");
-            indicators.add("• Multiple network fraud / spam complaints");
-            indicators.add("• Potential social engineering / phishing vector");
-        } else if (!isKnownContact) {
-            finalScore = 45;
-            level = LiveRiskResult.Level.MEDIUM;
-            summary = "Unknown Caller (Moderate Risk)";
-            recommendation = "Caller is not in your contacts. Natural voice detected. Exercise standard caution.";
-            indicators.add("• Caller not found in your saved contacts");
-            indicators.add("• Natural human voice acoustics verified");
-            indicators.add("• Clean number reputation (No active spam flags)");
-        } else {
-            finalScore = 5;
-            level = LiveRiskResult.Level.LOW;
-            summary = "Verified Trusted Contact (Natural Conversation)";
-            recommendation = "Caller is a verified saved contact. No malicious patterns or bot signatures detected.";
-            indicators.add("• Caller is in your saved contacts list");
-            indicators.add("• Natural human vocal pitch verified");
-            indicators.add("• Clean reputation & safe voice signature");
-        }
-
-        LiveRiskResult res = new LiveRiskResult(level, finalScore, summary, recommendation);
+        LiveRiskResult res = new LiveRiskResult(
+                assessment.riskLevel,
+                assessment.fraudScore,
+                assessment.detailedSummary,
+                assessment.actionRecommendation
+        );
         res.setContextEvaluated(true);
         res.setListeningDurationSeconds(secondsElapsed);
         res.setBot(isBot);
         res.setSpam(isSpam);
         res.setTrustedContact(isKnownContact);
 
-        for (String indicator : indicators) {
-            res.addIndicator(indicator);
+        for (String ind : assessment.detectedIndicators) {
+            res.addIndicator(ind);
+        }
+        for (String kw : assessment.flaggedKeywords) {
+            res.addFlaggedKeyword(kw);
         }
 
         return res;
