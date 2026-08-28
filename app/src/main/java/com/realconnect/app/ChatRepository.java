@@ -142,6 +142,16 @@ public class ChatRepository {
         notifyGlobalListeners(null);
     }
 
+    public void deleteChat(String chatId) {
+        messageDao.deleteChat(chatId);
+        notifyGlobalListeners(null);
+    }
+
+    public void deleteMessage(String messageId) {
+        messageDao.deleteMessage(messageId);
+        notifyGlobalListeners(null);
+    }
+
     public void startListeningToUserInbox(String selfPhone, @Nullable OnMessageReceivedListener notificationCallback) {
         String cleanSelf = cleanPhone(selfPhone);
         if (cleanSelf.isEmpty()) return;

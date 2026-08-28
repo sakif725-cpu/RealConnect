@@ -21,17 +21,23 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
         void onChatSelected(String contactName, String contactPhone);
     }
 
+    public interface OnChatLongClickListener {
+        void onChatLongClick(Message message, String contactName, String contactPhone);
+    }
+
     private final Context context;
     private final String selfPhone;
     private final OnChatSelectedListener listener;
+    private final OnChatLongClickListener longClickListener;
     private final List<Message> chatList = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd", Locale.getDefault());
 
-    public ChatPreviewAdapter(Context context, String selfPhone, OnChatSelectedListener listener) {
+    public ChatPreviewAdapter(Context context, String selfPhone, OnChatSelectedListener listener, OnChatLongClickListener longClickListener) {
         this.context = context;
         this.selfPhone = ChatRepository.cleanPhone(selfPhone);
         this.listener = listener;
+        this.longClickListener = longClickListener;
     }
 
     public void setChats(List<Message> chats) {
@@ -88,6 +94,14 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
             if (listener != null) {
                 listener.onChatSelected(displayName, targetPhone);
             }
+        });
+
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onChatLongClick(message, displayName, targetPhone);
+                return true;
+            }
+            return false;
         });
     }
 

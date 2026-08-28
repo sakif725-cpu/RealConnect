@@ -39,9 +39,12 @@ public class ChatsFragment extends Fragment {
 
         layoutEmpty = view.findViewById(R.id.layout_empty_chats);
 
-        adapter = new ChatPreviewAdapter(requireContext(), selfPhone, (contactName, contactPhone) -> {
-            openChatActivity(contactName, contactPhone);
-        });
+        adapter = new ChatPreviewAdapter(
+                requireContext(),
+                selfPhone,
+                (contactName, contactPhone) -> openChatActivity(contactName, contactPhone),
+                (message, contactName, contactPhone) -> showChatOptionsDialog(message, contactName, contactPhone)
+        );
 
         recyclerView.setAdapter(adapter);
 
@@ -147,5 +150,89 @@ public class ChatsFragment extends Fragment {
         intent.putExtra("CONTACT_NAME", name);
         intent.putExtra("CONTACT_PHONE", phone);
         startActivity(intent);
+    }
+
+    private void showChatOptionsDialog(Message message, String contactName, String contactPhone) {
+        if (!isAdded() || getContext() == null) return;
+
+        android.app.Dialog floatingDialog = new android.app.Dialog(requireContext());
+        floatingDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_chat_options, null);
+        floatingDialog.setContentView(dialogView);
+
+        View actionCopy = dialogView.findViewById(R.id.action_copy_chat_phone);
+        View actionBlock = dialogView.findViewById(R.id.action_block_chat);
+        View actionDelete = dialogView.findViewById(R.id.action_delete_chat);
+
+        android.widget.TextView textBlockTitle = dialogView.findViewById(R.id.text_block_title);
+        android.widget.ImageView imgBlockIcon = dialogView.findViewById(R.id.img_block_icon);
+
+        // 1. Copy Phone Number
+        actionCopy.setOnClickListener(v -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Phone Number", contactPhone);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(getContext(), "Copied " + contactPhone, Toast.LENGTH_SHORT).show();
+            }
+            floatingDialog.dismiss();
+        });
+
+        // 2. Block / Unblock Number
+        boolean isCurrentlyBlocked = BlockedNumbersManager.isBlocked(requireContext(), contactPhone);
+        if (isCurrentlyBlocked) {
+            textBlockTitle.setText("Unblock Number");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
+            imgBlockIcon.setImageResource(R.drawable.ic_contacts);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
+        } else {
+            textBlockTitle.setText("Block Number");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
+            imgBlockIcon.setImageResource(R.drawable.ic_block);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+        }
+
+        actionBlock.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            if (isCurrentlyBlocked) {
+                BlockedNumbersManager.unblockNumber(requireContext(), contactPhone);
+                Toast.makeText(getContext(), "Unblocked " + contactName, Toast.LENGTH_SHORT).show();
+            } else {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Block " + contactName + "?")
+                        .setMessage("You will no longer receive calls or messages from " + contactPhone + ".")
+                        .setPositiveButton("Block", (d, w) -> {
+                            BlockedNumbersManager.blockNumber(requireContext(), contactPhone);
+                            Toast.makeText(getContext(), "Blocked " + contactName, Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+        });
+
+        // 3. Delete Conversation
+        actionDelete.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Delete Conversation")
+                    .setMessage("Are you sure you want to delete the chat history with " + contactName + "?")
+                    .setPositiveButton("Delete", (d, w) -> {
+                        ChatRepository.getInstance(requireContext()).deleteChat(message.getChatId());
+                        loadRecentChats();
+                        Toast.makeText(getContext(), "Conversation deleted", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+
+        floatingDialog.show();
+        if (floatingDialog.getWindow() != null) {
+            floatingDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            floatingDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            floatingDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 }

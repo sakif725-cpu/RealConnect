@@ -32,4 +32,7 @@ public interface MessageDao {
 
     @Query("DELETE FROM messages WHERE chatId = :chatId")
     void deleteChat(String chatId);
+
+    @Query("DELETE FROM messages WHERE id = :messageId")
+    void deleteMessage(String messageId);
 }

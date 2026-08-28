@@ -17,12 +17,22 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private static final int VIEW_TYPE_SENT = 1;
     private static final int VIEW_TYPE_RECEIVED = 2;
 
+    public interface OnMessageLongClickListener {
+        void onMessageLongClick(Message message);
+    }
+
     private final String selfPhone;
+    private final OnMessageLongClickListener longClickListener;
     private final List<Message> messageList = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
 
-    public MessageAdapter(String selfPhone) {
+    public MessageAdapter(String selfPhone, OnMessageLongClickListener longClickListener) {
         this.selfPhone = ChatRepository.cleanPhone(selfPhone);
+        this.longClickListener = longClickListener;
+    }
+
+    public MessageAdapter(String selfPhone) {
+        this(selfPhone, null);
     }
 
     public void setMessages(List<Message> messages) {
@@ -81,6 +91,14 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             receivedHolder.textBody.setText(message.getText());
             receivedHolder.textTime.setText(timeStr);
         }
+
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onMessageLongClick(message);
+                return true;
+            }
+            return false;
+        });
     }
 
     @Override

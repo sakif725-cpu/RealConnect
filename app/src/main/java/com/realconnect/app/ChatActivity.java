@@ -118,7 +118,7 @@ public class ChatActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true);
         recyclerView.setLayoutManager(layoutManager);
 
-        adapter = new MessageAdapter(selfPhone);
+        adapter = new MessageAdapter(selfPhone, this::showMessageOptionsDialog);
         recyclerView.setAdapter(adapter);
 
         btnSend.setOnClickListener(v -> sendMessage());
@@ -130,6 +130,64 @@ public class ChatActivity extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private void showMessageOptionsDialog(Message message) {
+        if (isFinishing() || isDestroyed()) return;
+
+        android.app.Dialog floatingDialog = new android.app.Dialog(this);
+        floatingDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_message_options, null);
+        floatingDialog.setContentView(dialogView);
+
+        View actionCopy = dialogView.findViewById(R.id.action_copy_msg);
+        View actionShare = dialogView.findViewById(R.id.action_share_msg);
+        View actionDelete = dialogView.findViewById(R.id.action_delete_msg);
+
+        // 1. Copy Message Text
+        actionCopy.setOnClickListener(v -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Message Text", message.getText());
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(this, "Message copied", Toast.LENGTH_SHORT).show();
+            }
+            floatingDialog.dismiss();
+        });
+
+        // 2. Share Message
+        actionShare.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(Intent.EXTRA_TEXT, message.getText());
+            startActivity(Intent.createChooser(shareIntent, "Share Message"));
+        });
+
+        // 3. Delete Message
+        actionDelete.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Delete Message")
+                    .setMessage("Are you sure you want to delete this message?")
+                    .setPositiveButton("Delete", (d, w) -> {
+                        chatRepo.deleteMessage(message.getId());
+                        loadLocalHistory();
+                        Toast.makeText(this, "Message deleted", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+
+        floatingDialog.show();
+        if (floatingDialog.getWindow() != null) {
+            floatingDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            floatingDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            floatingDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void loadHeaderAvatar(ImageView imgAvatar, String phone, String name) {
