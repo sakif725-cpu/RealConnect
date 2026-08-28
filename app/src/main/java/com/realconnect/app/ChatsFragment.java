@@ -186,13 +186,15 @@ public class ChatsFragment extends Fragment {
         android.widget.TextView textBlockTitle = dialogView.findViewById(R.id.text_block_title);
         android.widget.ImageView imgBlockIcon = dialogView.findViewById(R.id.img_block_icon);
 
-        // 1. Copy Phone Number
+        // 1. Copy Recent Message
         actionCopy.setOnClickListener(v -> {
             android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
-            android.content.ClipData clip = android.content.ClipData.newPlainText("Phone Number", contactPhone);
+            String textToCopy = (message != null && message.getText() != null && !message.getText().trim().isEmpty())
+                    ? message.getText() : contactPhone;
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Message", textToCopy);
             if (clipboard != null) {
                 clipboard.setPrimaryClip(clip);
-                Toast.makeText(getContext(), "Copied " + contactPhone, Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Message copied", Toast.LENGTH_SHORT).show();
             }
             floatingDialog.dismiss();
         });
