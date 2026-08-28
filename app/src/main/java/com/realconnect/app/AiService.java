@@ -66,21 +66,31 @@ public class AiService {
     }
 
     public static void detectBot(byte[] voiceData, AiCallback<Boolean> callback) {
+        analyzeVoiceBehavior(voiceData, response -> {
+            if (response != null) {
+                callback.onResult(response.isBot || response.isScammer);
+            } else {
+                callback.onResult(false);
+            }
+        });
+    }
+
+    public static void analyzeVoiceBehavior(byte[] voiceData, AiCallback<AiApiService.VoiceAnalysisResponse> callback) {
         String audioBase64 = voiceData != null ? Base64.encodeToString(voiceData, Base64.NO_WRAP) : "";
         getApi().analyzeVoice(new AiApiService.VoiceData(audioBase64)).enqueue(new Callback<AiApiService.VoiceAnalysisResponse>() {
             @Override
             public void onResponse(Call<AiApiService.VoiceAnalysisResponse> call, Response<AiApiService.VoiceAnalysisResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    callback.onResult(response.body().isBot);
+                    callback.onResult(response.body());
                 } else {
-                    callback.onResult(false);
+                    callback.onResult(null);
                 }
             }
 
             @Override
             public void onFailure(Call<AiApiService.VoiceAnalysisResponse> call, Throwable t) {
-                Log.e(TAG, "Bot Detection Failed", t);
-                callback.onResult(false);
+                Log.e(TAG, "Voice Analysis API Failed", t);
+                callback.onResult(null);
             }
         });
     }
