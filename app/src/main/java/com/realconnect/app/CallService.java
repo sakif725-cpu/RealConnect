@@ -174,6 +174,10 @@ public class CallService extends Service {
             @Override
             public void onRemoteOfferReceived(String callerPhone, SessionDescription description) {
                 if (isListeningPaused || isProcessingCall) return;
+                if (BlockedNumbersManager.isBlocked(CallService.this, callerPhone)) {
+                    Log.d(TAG, "Ignored incoming call from blocked number: " + callerPhone);
+                    return;
+                }
                 isProcessingCall = true;
 
                 destroySignaling();

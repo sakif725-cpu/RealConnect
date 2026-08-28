@@ -56,11 +56,32 @@ public class PrivacyActivity extends AppCompatActivity {
 
         // 3. Blocked Numbers
         findViewById(R.id.card_option_blocked_numbers).setOnClickListener(v -> {
-            new AlertDialog.Builder(PrivacyActivity.this)
-                    .setTitle("Blocked Numbers")
-                    .setMessage("Manage contacts and unknown numbers blocked from calling or sending SMS messages to you.\n\nThis feature will be available in the upcoming update.")
-                    .setPositiveButton("Got It", null)
-                    .show();
+            java.util.Set<String> blockedSet = BlockedNumbersManager.getBlockedNumbers(PrivacyActivity.this);
+            if (blockedSet.isEmpty()) {
+                new AlertDialog.Builder(PrivacyActivity.this)
+                        .setTitle("Blocked Numbers")
+                        .setMessage("You have not blocked any numbers yet.\n\nTo block a contact, long-press on any contact card in the Contacts tab.")
+                        .setPositiveButton("Got It", null)
+                        .show();
+            } else {
+                String[] blockedArr = blockedSet.toArray(new String[0]);
+                new AlertDialog.Builder(PrivacyActivity.this)
+                        .setTitle("Blocked Numbers (" + blockedArr.length + ")")
+                        .setItems(blockedArr, (dialog, which) -> {
+                            String selected = blockedArr[which];
+                            new AlertDialog.Builder(PrivacyActivity.this)
+                                    .setTitle("Unblock Number?")
+                                    .setMessage("Allow incoming calls and messages from " + selected + "?")
+                                    .setPositiveButton("Unblock", (d, w) -> {
+                                        BlockedNumbersManager.unblockNumber(PrivacyActivity.this, selected);
+                                        android.widget.Toast.makeText(PrivacyActivity.this, "Unblocked " + selected, android.widget.Toast.LENGTH_SHORT).show();
+                                    })
+                                    .setNegativeButton("Cancel", null)
+                                    .show();
+                        })
+                        .setPositiveButton("Close", null)
+                        .show();
+            }
         });
     }
 

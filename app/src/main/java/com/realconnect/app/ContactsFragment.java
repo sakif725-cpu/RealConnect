@@ -122,17 +122,138 @@ public class ContactsFragment extends Fragment {
     }
 
     private void showContactOptionsDialog(Contact contact) {
-        String[] options = {"Edit", "Delete"};
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(contact.getName())
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        showEditContactDialog(contact);
-                    } else if (which == 1) {
-                        showDeleteConfirmationDialog(contact);
-                    }
-                })
-                .show();
+        if (!isAdded() || getContext() == null) return;
+
+        com.google.android.material.bottomsheet.BottomSheetDialog sheetDialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext());
+        View sheetView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_options, null);
+        sheetDialog.setContentView(sheetView);
+
+        android.widget.ImageView imgAvatar = sheetView.findViewById(R.id.img_sheet_avatar);
+        android.widget.TextView textName = sheetView.findViewById(R.id.text_sheet_name);
+        android.widget.TextView textPhone = sheetView.findViewById(R.id.text_sheet_phone);
+        View btnQuickCall = sheetView.findViewById(R.id.btn_sheet_quick_call);
+        View btnQuickMsg = sheetView.findViewById(R.id.btn_sheet_quick_message);
+
+        View actionCopy = sheetView.findViewById(R.id.action_copy_number);
+        View actionShare = sheetView.findViewById(R.id.action_share_contact);
+        View actionEdit = sheetView.findViewById(R.id.action_edit_contact);
+        View actionBlock = sheetView.findViewById(R.id.action_block_contact);
+        View actionDelete = sheetView.findViewById(R.id.action_delete_contact);
+
+        android.widget.TextView textBlockTitle = sheetView.findViewById(R.id.text_block_title);
+        android.widget.TextView textBlockSubtitle = sheetView.findViewById(R.id.text_block_subtitle);
+        android.widget.ImageView imgBlockIcon = sheetView.findViewById(R.id.img_block_icon);
+        com.google.android.material.card.MaterialCardView cardBlockIcon = sheetView.findViewById(R.id.card_block_icon);
+
+        textName.setText(contact.getName());
+        textPhone.setText(contact.getPhoneNumber());
+
+        // Avatar placeholder
+        android.graphics.Bitmap avatarBitmap = ImageUtils.createAvatarWithInitial(
+                contact.getName(), 160, android.graphics.Color.parseColor("#0EA5E9"), android.graphics.Color.WHITE
+        );
+        imgAvatar.setImageBitmap(avatarBitmap);
+
+        // Fetch remote avatar if available
+        String cleanPhone = ChatRepository.cleanPhone(contact.getPhoneNumber());
+        if (!cleanPhone.isEmpty()) {
+            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users")
+                    .child(cleanPhone).child("profileImageBase64")
+                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snapshot) {
+                            String base64 = snapshot.getValue(String.class);
+                            if (base64 != null && !base64.isEmpty() && isAdded()) {
+                                android.graphics.Bitmap bmp = ImageUtils.base64ToBitmap(base64);
+                                if (bmp != null) imgAvatar.setImageBitmap(bmp);
+                            }
+                        }
+                        @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError error) {}
+                    });
+        }
+
+        // Quick Call & Message
+        btnQuickCall.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            initiateCall(contact);
+        });
+
+        btnQuickMsg.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            initiateChat(contact);
+        });
+
+        // 1. Copy Phone Number
+        actionCopy.setOnClickListener(v -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Contact Phone", contact.getPhoneNumber());
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(getContext(), "Copied " + contact.getPhoneNumber(), Toast.LENGTH_SHORT).show();
+            }
+            sheetDialog.dismiss();
+        });
+
+        // 2. Share Contact
+        actionShare.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            String shareBody = "Name: " + contact.getName() + "\nPhone: " + contact.getPhoneNumber() + "\nShared via RealConnect";
+            shareIntent.putExtra(Intent.EXTRA_TEXT, shareBody);
+            startActivity(Intent.createChooser(shareIntent, "Share Contact"));
+        });
+
+        // 3. Edit Contact
+        actionEdit.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            showEditContactDialog(contact);
+        });
+
+        // 4. Block / Unblock Contact
+        boolean isCurrentlyBlocked = BlockedNumbersManager.isBlocked(requireContext(), contact.getPhoneNumber());
+        if (isCurrentlyBlocked) {
+            textBlockTitle.setText("Unblock Contact");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
+            textBlockSubtitle.setText("Allow calls and messages from this number");
+            cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#ECFDF5"));
+            imgBlockIcon.setImageResource(R.drawable.ic_contacts);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
+        } else {
+            textBlockTitle.setText("Block Contact");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
+            textBlockSubtitle.setText("Prevent calls and messages from this number");
+            cardBlockIcon.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
+            imgBlockIcon.setImageResource(R.drawable.ic_block);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+        }
+
+        actionBlock.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            if (isCurrentlyBlocked) {
+                BlockedNumbersManager.unblockNumber(requireContext(), contact.getPhoneNumber());
+                Toast.makeText(getContext(), "Unblocked " + contact.getName(), Toast.LENGTH_SHORT).show();
+            } else {
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Block " + contact.getName() + "?")
+                        .setMessage("You will no longer receive phone calls or messages from " + contact.getPhoneNumber() + ".")
+                        .setPositiveButton("Block", (d, w) -> {
+                            BlockedNumbersManager.blockNumber(requireContext(), contact.getPhoneNumber());
+                            Toast.makeText(getContext(), "Blocked " + contact.getName(), Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+        });
+
+        // 5. Delete Contact
+        actionDelete.setOnClickListener(v -> {
+            sheetDialog.dismiss();
+            showDeleteConfirmationDialog(contact);
+        });
+
+        sheetDialog.show();
     }
 
     private void showEditContactDialog(Contact contact) {
