@@ -68,6 +68,7 @@ public class CallingActivity extends AppCompatActivity {
     private boolean isIncoming;
     private LiveRiskResult lastRiskResult;
     private LiveCallAiProcessor aiProcessor;
+    private CallTranscriptManager transcriptLogger;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -250,6 +251,15 @@ public class CallingActivity extends AppCompatActivity {
             running = true;
             runTimer();
             startContinuousAiListening();
+
+            try {
+                if (transcriptLogger == null) {
+                    transcriptLogger = new CallTranscriptManager(CallingActivity.this);
+                }
+                transcriptLogger.startListening();
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to start transcript logger", e);
+            }
         });
     }
 
@@ -606,6 +616,10 @@ public class CallingActivity extends AppCompatActivity {
         if (aiProcessor != null) {
             aiProcessor.stop();
             aiProcessor = null;
+        }
+        if (transcriptLogger != null) {
+            transcriptLogger.stopListening();
+            transcriptLogger = null;
         }
         CallRecordingHelper.getInstance().stopRecording();
         saveCallLogEntry();

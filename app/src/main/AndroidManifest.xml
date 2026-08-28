@@ -79,6 +79,10 @@
             android:name=".RecordingsActivity"
             android:theme="@style/Theme.RealConnect" />
 
+        <activity
+            android:name=".TranscriptsLogActivity"
+            android:theme="@style/Theme.RealConnect" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
