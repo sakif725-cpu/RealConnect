@@ -65,7 +65,18 @@ public class LiveCallGuard {
         int duration = result.getListeningDurationSeconds();
         textAudioSampling.setText("• Analyzed " + (duration > 0 ? duration : 5) + "s of real-time incoming audio stream");
 
-        // Section 2: AI Risk Assessment Views
+        // Section 2: Caller Intention (AI Analyzed)
+        TextView textCallerIntent = view.findViewById(R.id.text_caller_intent);
+        if (textCallerIntent != null) {
+            String intent = result.getCallerIntent();
+            if (intent != null && !intent.trim().isEmpty()) {
+                textCallerIntent.setText(intent.trim());
+            } else {
+                textCallerIntent.setText("AI is analyzing live conversation intent...");
+            }
+        }
+
+        // Section 3: AI Risk Assessment Views
         MaterialCardView cardRisk = view.findViewById(R.id.card_risk_score);
         TextView textLevelBadge = view.findViewById(R.id.text_risk_level_badge);
         TextView textSummary = view.findViewById(R.id.text_risk_summary);

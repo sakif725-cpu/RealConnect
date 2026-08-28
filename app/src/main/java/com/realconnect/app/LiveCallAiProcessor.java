@@ -253,41 +253,34 @@ public class LiveCallAiProcessor {
     }
 
     private void evaluateLiveContext() {
-        String contactName = ContactRepository.getInstance(context).findContactByNumber(phone);
-        boolean isKnownContact = (contactName != null && !contactName.trim().isEmpty());
         String transcript = accumulatedTranscript.toString().trim();
 
-        FraudIntelligenceEngine.FraudAssessment assessment = FraudIntelligenceEngine.evaluate(
-                transcript,
-                isKnownContact,
-                isPreFlaggedSpam,
-                isSyntheticVoiceDetected
-        );
+        AiIntentAnalyzer.analyzeCallerIntent(transcript, phone, name, intentResult -> {
+            LiveRiskResult res = new LiveRiskResult(
+                    intentResult.riskLevel,
+                    intentResult.riskScore,
+                    intentResult.summary,
+                    intentResult.recommendation
+            );
+            res.setContextEvaluated(true);
+            res.setListeningDurationSeconds(secondsElapsed);
+            res.setBot(isSyntheticVoiceDetected);
+            res.setSpam(isPreFlaggedSpam);
+            res.setTranscriptExcerpt(transcript);
+            res.setCallerIntent(intentResult.intention);
 
-        LiveRiskResult res = new LiveRiskResult(
-                assessment.riskLevel,
-                assessment.fraudScore,
-                assessment.detailedSummary,
-                assessment.actionRecommendation
-        );
-        res.setContextEvaluated(true);
-        res.setListeningDurationSeconds(secondsElapsed);
-        res.setBot(isSyntheticVoiceDetected);
-        res.setSpam(isPreFlaggedSpam);
-        res.setTrustedContact(isKnownContact);
-        res.setTranscriptExcerpt(transcript);
+            for (String ind : intentResult.threatIndicators) {
+                res.addIndicator(ind);
+            }
+            for (String kw : intentResult.flaggedKeywords) {
+                res.addFlaggedKeyword(kw);
+            }
 
-        for (String ind : assessment.detectedIndicators) {
-            res.addIndicator(ind);
-        }
-        for (String kw : assessment.flaggedKeywords) {
-            res.addFlaggedKeyword(kw);
-        }
+            currentRiskResult = res;
 
-        currentRiskResult = res;
-
-        if (listener != null) {
-            new Handler(Looper.getMainLooper()).post(() -> listener.onRiskUpdated(res));
-        }
+            if (listener != null) {
+                listener.onRiskUpdated(res);
+            }
+        });
     }
 }

@@ -20,6 +20,7 @@ public class LiveRiskResult {
     private boolean isContextEvaluated;
     private int listeningDurationSeconds;
     private String transcriptExcerpt = "";
+    private String callerIntent = "";
     private final List<String> indicators = new ArrayList<>();
     private final List<String> flaggedKeywords = new ArrayList<>();
 
@@ -59,6 +60,9 @@ public class LiveRiskResult {
 
     public String getTranscriptExcerpt() { return transcriptExcerpt; }
     public void setTranscriptExcerpt(String transcriptExcerpt) { this.transcriptExcerpt = transcriptExcerpt; }
+
+    public String getCallerIntent() { return callerIntent; }
+    public void setCallerIntent(String callerIntent) { this.callerIntent = callerIntent; }
 
     public List<String> getIndicators() { return indicators; }
     public void addIndicator(String indicator) { this.indicators.add(indicator); }
