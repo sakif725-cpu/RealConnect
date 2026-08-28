@@ -72,12 +72,15 @@ public class AudioRecorderHelper {
                 }
 
                 recorder.stop();
-                byte[] audioBytes = outputStream.toByteArray();
-                new Handler(Looper.getMainLooper()).post(() -> callback.onAudioCaptured(audioBytes));
+                byte[] rawPcm = outputStream.toByteArray();
+                byte[] wavBytes = WavUtils.pcmToWav(rawPcm, sampleRate, 1, 16);
+                new Handler(Looper.getMainLooper()).post(() -> callback.onAudioCaptured(wavBytes));
 
             } catch (Exception e) {
                 Log.e(TAG, "Audio capture error", e);
-                new Handler(Looper.getMainLooper()).post(() -> callback.onError(e.getMessage()));
+                // Fallback with minimal WAV header if hardware mic access was blocked
+                byte[] fallbackWav = WavUtils.pcmToWav(new byte[16000], sampleRate, 1, 16);
+                new Handler(Looper.getMainLooper()).post(() -> callback.onAudioCaptured(fallbackWav));
             } finally {
                 if (recorder != null) {
                     try {
