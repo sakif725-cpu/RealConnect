@@ -29,23 +29,23 @@ import java.util.Locale;
 /**
  * Production-ready Real-Time Call Speech-to-Text Pipeline & Transcript Logger.
  *
- * Key Architecture:
+ * Architecture:
  * 1. Sandboxed Internal Storage: Writes to context.getFilesDir()/profile/privacy/TranscriptsLog/transcript.txt
- * 2. Thread-Safe Append-Only Writer: Appends finalized sentences line-by-line with timestamps.
- * 3. Continuous Recognition Loop: Handles silences and errors with auto-recovery.
- * 4. Zero External Leakage: Operates purely in Linux application sandbox (0700 private UID).
+ * 2. Real-Time Partial & Finalized Live Streaming: Dispatches word-by-word speech as you speak.
+ * 3. Session Buffer: Isolates current ongoing call transcript from past historical logs.
+ * 4. Fault-Tolerant Auto-Restart Loop: Keeps listening without interruption.
  */
 public class CallTranscriptManager {
 
     private static final String TAG = "CallTranscriptManager";
 
-    // Required directory hierarchy relative to internal context.getFilesDir()
     private static final String DIRECTORY_PATH = "profile/privacy/TranscriptsLog";
     private static final String FILE_NAME = "transcript.txt";
-    private static final long RESTART_DELAY_MS = 250L;
+    private static final long RESTART_DELAY_MS = 200L;
 
     public interface OnTranscriptUpdatedListener {
-        void onSentenceLogged(@NonNull String timestamp, @NonNull String text);
+        void onPartialSentence(@NonNull String partialText);
+        void onSentenceLogged(@NonNull String timestamp, @NonNull String finalizedText);
         void onError(@NonNull String errorMessage);
     }
 
@@ -53,11 +53,13 @@ public class CallTranscriptManager {
     private final Handler mainHandler;
     private final Object fileLock = new Object();
     private final SimpleDateFormat timestampFormatter;
+    private final StringBuilder sessionTranscript = new StringBuilder();
 
     private SpeechRecognizer speechRecognizer;
     private Intent speechIntent;
     private boolean isListening = false;
     private OnTranscriptUpdatedListener listener;
+    private String lastPartialText = "";
 
     public CallTranscriptManager(@NonNull Context context) {
         this.context = context.getApplicationContext();
@@ -70,10 +72,6 @@ public class CallTranscriptManager {
         this.listener = listener;
     }
 
-    /**
-     * Requirement 1 & 4: Helper method to establish nested directories inside context.getFilesDir()
-     * Path: /data/user/0/<package_name>/files/profile/privacy/TranscriptsLog/transcript.txt
-     */
     @NonNull
     public File getTranscriptFile() throws IOException {
         File directory = new File(context.getFilesDir(), DIRECTORY_PATH);
@@ -86,16 +84,12 @@ public class CallTranscriptManager {
         return new File(directory, FILE_NAME);
     }
 
-    /**
-     * Requirement 3: Continuous SpeechRecognizer framework with automated fault tolerance.
-     */
     private void initSpeechRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             Log.e(TAG, "SpeechRecognizer is unavailable on this device");
             return;
         }
 
-        // Favor on-device offline recognition when supported (Android 12+ / API 31+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context);
         } else {
@@ -105,17 +99,13 @@ public class CallTranscriptManager {
         speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString());
-        speechIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+        speechIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         speechIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            speechIntent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        }
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle params) {
-                Log.d(TAG, "RecognitionListener: Ready for audio stream");
+                Log.d(TAG, "RecognitionListener: Ready for audio input");
             }
 
             @Override public void onBeginningOfSpeech() {}
@@ -126,7 +116,6 @@ public class CallTranscriptManager {
             @Override
             public void onError(int error) {
                 Log.w(TAG, "RecognitionListener: onError code = " + error);
-                // On silence, speech timeout, or connection blips, restart continuous loop
                 if (isListening) {
                     scheduleRestart();
                 }
@@ -134,21 +123,22 @@ public class CallTranscriptManager {
 
             @Override
             public void onResults(Bundle results) {
-                processResults(results);
-                // Keep continuous listening active for the remainder of the call
+                processFinalResults(results);
+                lastPartialText = "";
                 if (isListening) {
                     scheduleRestart();
                 }
             }
 
-            @Override public void onPartialResults(Bundle partialResults) {}
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                processPartialResults(partialResults);
+            }
+
             @Override public void onEvent(int eventType, Bundle params) {}
         });
     }
 
-    /**
-     * Starts continuous listening loop on the main looper.
-     */
     public synchronized void startListening() {
         if (isListening) return;
 
@@ -163,9 +153,6 @@ public class CallTranscriptManager {
         beginListeningIntent();
     }
 
-    /**
-     * Stops continuous listening loop and releases all native recognizer instances.
-     */
     public synchronized void stopListening() {
         isListening = false;
         mainHandler.removeCallbacksAndMessages(null);
@@ -206,7 +193,21 @@ public class CallTranscriptManager {
         mainHandler.postDelayed(this::beginListeningIntent, RESTART_DELAY_MS);
     }
 
-    private void processResults(Bundle results) {
+    private void processPartialResults(Bundle partialResults) {
+        if (partialResults == null) return;
+        ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && !matches.isEmpty()) {
+            String partial = matches.get(0);
+            if (partial != null && !partial.trim().isEmpty() && !partial.equals(lastPartialText)) {
+                lastPartialText = partial.trim();
+                if (listener != null) {
+                    mainHandler.post(() -> listener.onPartialSentence(lastPartialText));
+                }
+            }
+        }
+    }
+
+    private void processFinalResults(Bundle results) {
         if (results == null) return;
         ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         if (matches != null && !matches.isEmpty()) {
@@ -215,9 +216,19 @@ public class CallTranscriptManager {
                 String cleanSentence = text.trim();
                 String timestamp = timestampFormatter.format(new Date());
 
-                // Requirement 2: Append-only write to internal storage
+                // 1. Append to current live call session memory buffer
+                synchronized (sessionTranscript) {
+                    String line = String.format("[%s] %s", timestamp, cleanSentence);
+                    if (sessionTranscript.length() > 0) {
+                        sessionTranscript.append("\n");
+                    }
+                    sessionTranscript.append(line);
+                }
+
+                // 2. Append to persistent file
                 appendSentenceToFile(timestamp, cleanSentence);
 
+                // 3. Notify live UI
                 if (listener != null) {
                     mainHandler.post(() -> listener.onSentenceLogged(timestamp, cleanSentence));
                 }
@@ -225,22 +236,17 @@ public class CallTranscriptManager {
         }
     }
 
-    /**
-     * Requirement 2 & 4: Append-Only Thread-Safe Writer
-     * Appends a new line formatted as "[YYYY-MM-DD HH:MM:SS] <Text>" to transcript.txt
-     */
     private void appendSentenceToFile(@NonNull String timestamp, @NonNull String sentence) {
         synchronized (fileLock) {
             BufferedWriter writer = null;
             try {
                 File targetFile = getTranscriptFile();
-                // Pass 'true' to FileWriter for append-only mode (never overwrites)
                 writer = new BufferedWriter(new FileWriter(targetFile, true));
                 String line = String.format("[%s] %s", timestamp, sentence);
                 writer.write(line);
                 writer.newLine();
                 writer.flush();
-                Log.d(TAG, "Successfully appended: " + line);
+                Log.d(TAG, "Appended to transcript.txt: " + line);
             } catch (IOException e) {
                 Log.e(TAG, "Failed writing to internal transcript file", e);
                 if (listener != null) {
@@ -257,7 +263,22 @@ public class CallTranscriptManager {
     }
 
     /**
-     * Reads the entire log file from internal storage.
+     * Returns ONLY what was transcribed during THIS current active call.
+     */
+    @NonNull
+    public String getCurrentSessionTranscript() {
+        synchronized (sessionTranscript) {
+            return sessionTranscript.toString();
+        }
+    }
+
+    @NonNull
+    public String getLastPartialText() {
+        return lastPartialText;
+    }
+
+    /**
+     * Reads the entire historical log file from internal storage.
      */
     @NonNull
     public String readCompleteTranscript() {
@@ -281,9 +302,6 @@ public class CallTranscriptManager {
         }
     }
 
-    /**
-     * Deletes transcript file securely if needed.
-     */
     public boolean deleteTranscriptFile() {
         synchronized (fileLock) {
             try {

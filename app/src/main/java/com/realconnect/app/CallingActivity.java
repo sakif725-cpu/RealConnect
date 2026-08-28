@@ -586,14 +586,25 @@ public class CallingActivity extends AppCompatActivity {
         View btnClose = view.findViewById(R.id.btn_close_live_transcript);
 
         Runnable updateTranscriptUI = () -> {
-            String fullTranscript = (transcriptLogger != null) ? transcriptLogger.readCompleteTranscript() : "";
-            if (!fullTranscript.trim().isEmpty()) {
-                textTranscriptContent.setText(fullTranscript.trim());
+            String sessionText = (transcriptLogger != null) ? transcriptLogger.getCurrentSessionTranscript() : "";
+            String partialText = (transcriptLogger != null) ? transcriptLogger.getLastPartialText() : "";
+
+            StringBuilder display = new StringBuilder();
+            if (!sessionText.trim().isEmpty()) {
+                display.append(sessionText.trim());
+            }
+            if (!partialText.trim().isEmpty()) {
+                if (display.length() > 0) display.append("\n");
+                display.append("🎙️ ").append(partialText.trim()).append("...");
+            }
+
+            if (display.length() > 0) {
+                textTranscriptContent.setText(display.toString());
                 if (scrollView != null) {
                     scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
                 }
             } else {
-                textTranscriptContent.setText("🎙️ Listening to live audio stream...\nSpeak into the microphone to see real-time transcription.");
+                textTranscriptContent.setText("🎙️ Listening to live audio stream...\nSpeak into the microphone to see real-time speech transcription.");
             }
         };
 
@@ -601,6 +612,11 @@ public class CallingActivity extends AppCompatActivity {
 
         if (transcriptLogger != null) {
             transcriptLogger.setOnTranscriptUpdatedListener(new CallTranscriptManager.OnTranscriptUpdatedListener() {
+                @Override
+                public void onPartialSentence(String partialText) {
+                    runOnUiThread(updateTranscriptUI::run);
+                }
+
                 @Override
                 public void onSentenceLogged(String timestamp, String text) {
                     runOnUiThread(updateTranscriptUI::run);
@@ -615,16 +631,16 @@ public class CallingActivity extends AppCompatActivity {
 
         if (btnCopy != null) {
             btnCopy.setOnClickListener(v -> {
-                String text = (transcriptLogger != null) ? transcriptLogger.readCompleteTranscript() : "";
+                String text = (transcriptLogger != null) ? transcriptLogger.getCurrentSessionTranscript() : "";
                 if (!text.trim().isEmpty()) {
                     android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    android.content.ClipData clip = android.content.ClipData.newPlainText("Call Transcript", text);
+                    android.content.ClipData clip = android.content.ClipData.newPlainText("Live Call Transcript", text);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(clip);
-                        Toast.makeText(CallingActivity.this, "Transcript copied to clipboard", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(CallingActivity.this, "Call transcript copied to clipboard", Toast.LENGTH_SHORT).show();
                     }
                 } else {
-                    Toast.makeText(CallingActivity.this, "No transcript to copy yet", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(CallingActivity.this, "No speech transcribed in this call yet", Toast.LENGTH_SHORT).show();
                 }
             });
         }
