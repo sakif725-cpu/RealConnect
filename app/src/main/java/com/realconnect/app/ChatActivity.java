@@ -167,16 +167,43 @@ public class ChatActivity extends AppCompatActivity {
         // 3. Delete Message
         actionDelete.setOnClickListener(v -> {
             floatingDialog.dismiss();
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                    .setTitle("Delete Message")
-                    .setMessage("Are you sure you want to delete this message?")
-                    .setPositiveButton("Delete", (d, w) -> {
-                        chatRepo.deleteMessage(message.getId());
-                        loadLocalHistory();
-                        Toast.makeText(this, "Message deleted", Toast.LENGTH_SHORT).show();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+            android.app.Dialog confirmDialog = new android.app.Dialog(this);
+            confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View confirmView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_confirm_action, null);
+            confirmDialog.setContentView(confirmView);
+
+            android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+            android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+            android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+            com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+            com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+            View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+            textTitle.setText("Delete Message");
+            textMsg.setText("Are you sure you want to delete this message?");
+            imgIcon.setImageResource(R.drawable.ic_delete);
+            imgIcon.setColorFilter(android.graphics.Color.parseColor("#EF4444"));
+            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"));
+            btnAction.setText("Delete");
+            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#EF4444"));
+
+            btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+            btnAction.setOnClickListener(cv -> {
+                confirmDialog.dismiss();
+                chatRepo.deleteMessage(message.getId());
+                loadLocalHistory();
+                Toast.makeText(this, "Message deleted", Toast.LENGTH_SHORT).show();
+            });
+
+            confirmDialog.show();
+            if (confirmDialog.getWindow() != null) {
+                confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                confirmDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
         });
 
         floatingDialog.show();

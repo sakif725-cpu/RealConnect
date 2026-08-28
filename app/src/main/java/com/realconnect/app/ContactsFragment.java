@@ -193,15 +193,42 @@ public class ContactsFragment extends Fragment {
                 BlockedNumbersManager.unblockNumber(requireContext(), contact.getPhoneNumber());
                 Toast.makeText(getContext(), "Unblocked " + contact.getName(), Toast.LENGTH_SHORT).show();
             } else {
-                new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("Block Contact")
-                        .setMessage("Are you sure you want to block calls and messages from " + contact.getPhoneNumber() + "?")
-                        .setPositiveButton("Block", (d, w) -> {
-                            BlockedNumbersManager.blockNumber(requireContext(), contact.getPhoneNumber());
-                            Toast.makeText(getContext(), "Blocked " + contact.getName(), Toast.LENGTH_SHORT).show();
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show();
+                android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+                confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+                View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+                confirmDialog.setContentView(confirmView);
+
+                android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+                android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+                android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+                com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+                com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+                View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+                textTitle.setText("Block Contact");
+                textMsg.setText("Are you sure you want to block calls and messages from " + contact.getName() + " (" + contact.getPhoneNumber() + ")?");
+                imgIcon.setImageResource(R.drawable.ic_block);
+                imgIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+                iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
+                btnAction.setText("Block");
+                btnAction.setBackgroundColor(android.graphics.Color.parseColor("#D97706"));
+
+                btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+                btnAction.setOnClickListener(cv -> {
+                    confirmDialog.dismiss();
+                    BlockedNumbersManager.blockNumber(requireContext(), contact.getPhoneNumber());
+                    Toast.makeText(getContext(), "Blocked " + contact.getName(), Toast.LENGTH_SHORT).show();
+                });
+
+                confirmDialog.show();
+                if (confirmDialog.getWindow() != null) {
+                    confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                    confirmDialog.getWindow().setLayout(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+                    confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+                }
             }
         });
 
@@ -223,75 +250,140 @@ public class ContactsFragment extends Fragment {
     }
 
     private void showEditContactDialog(Contact contact) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_contact, null);
-        EditText editName = dialogView.findViewById(R.id.edit_name);
-        EditText editPhone = dialogView.findViewById(R.id.edit_phone);
+        android.app.Dialog formDialog = new android.app.Dialog(requireContext());
+        formDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_form, null);
+        formDialog.setContentView(dialogView);
+
+        android.widget.TextView textTitle = dialogView.findViewById(R.id.text_form_title);
+        android.widget.TextView textSubtitle = dialogView.findViewById(R.id.text_form_subtitle);
+        EditText editName = dialogView.findViewById(R.id.edit_form_name);
+        EditText editPhone = dialogView.findViewById(R.id.edit_form_phone);
+        View btnCancel = dialogView.findViewById(R.id.btn_form_cancel);
+        com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_form_submit);
+
+        textTitle.setText("Edit Contact");
+        textSubtitle.setText("Update contact details below");
+        btnSubmit.setText("Save");
 
         editName.setText(contact.getName());
         editPhone.setText(contact.getPhoneNumber());
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Edit Contact")
-                .setView(dialogView)
-                .setPositiveButton("Save", (dialog, which) -> {
-                    String name = editName.getText().toString().trim();
-                    String phone = editPhone.getText().toString().trim();
+        btnCancel.setOnClickListener(v -> formDialog.dismiss());
+        btnSubmit.setOnClickListener(v -> {
+            String name = editName.getText().toString().trim();
+            String phone = editPhone.getText().toString().trim();
 
-                    if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
-                        Contact updatedContact = new Contact(name, phone);
-                        ContactRepository.getInstance(requireContext()).updateContact(contact, updatedContact);
-                        refreshContacts();
-                        Toast.makeText(getContext(), "Contact updated", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
+            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
+                Contact updatedContact = new Contact(name, phone);
+                ContactRepository.getInstance(requireContext()).updateContact(contact, updatedContact);
+                refreshContacts();
+                formDialog.dismiss();
+                Toast.makeText(getContext(), "Contact updated", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        formDialog.show();
+        if (formDialog.getWindow() != null) {
+            formDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            formDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            formDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void showDeleteConfirmationDialog(Contact contact) {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Delete Contact")
-                .setMessage("Are you sure you want to delete " + contact.getName() + "?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    ContactRepository.getInstance(requireContext()).deleteContact(contact);
-                    refreshContacts();
-                    Toast.makeText(getContext(), "Contact deleted", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+        confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+        confirmDialog.setContentView(confirmView);
+
+        android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+        android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+        android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+        com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+        com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+        View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+        textTitle.setText("Delete Contact");
+        textMsg.setText("Are you sure you want to delete " + contact.getName() + " from your contacts list?");
+        imgIcon.setImageResource(R.drawable.ic_delete);
+        imgIcon.setColorFilter(android.graphics.Color.parseColor("#EF4444"));
+        iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"));
+        btnAction.setText("Delete");
+        btnAction.setBackgroundColor(android.graphics.Color.parseColor("#EF4444"));
+
+        btnCancel.setOnClickListener(v -> confirmDialog.dismiss());
+        btnAction.setOnClickListener(v -> {
+            confirmDialog.dismiss();
+            ContactRepository.getInstance(requireContext()).deleteContact(contact);
+            refreshContacts();
+            Toast.makeText(getContext(), "Contact deleted", Toast.LENGTH_SHORT).show();
+        });
+
+        confirmDialog.show();
+        if (confirmDialog.getWindow() != null) {
+            confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            confirmDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void showAddContactDialog(@Nullable String prefilledPhone) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_contact, null);
-        EditText editName = dialogView.findViewById(R.id.edit_name);
-        EditText editPhone = dialogView.findViewById(R.id.edit_phone);
+        android.app.Dialog formDialog = new android.app.Dialog(requireContext());
+        formDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_form, null);
+        formDialog.setContentView(dialogView);
+
+        android.widget.TextView textTitle = dialogView.findViewById(R.id.text_form_title);
+        android.widget.TextView textSubtitle = dialogView.findViewById(R.id.text_form_subtitle);
+        EditText editName = dialogView.findViewById(R.id.edit_form_name);
+        EditText editPhone = dialogView.findViewById(R.id.edit_form_phone);
+        View btnCancel = dialogView.findViewById(R.id.btn_form_cancel);
+        com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_form_submit);
+
+        textTitle.setText("New Contact");
+        textSubtitle.setText("Add contact to your phonebook");
+        btnSubmit.setText("Add");
 
         if (prefilledPhone != null) {
             editPhone.setText(prefilledPhone);
         }
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.dialog_add_contact_title)
-                .setView(dialogView)
-                .setPositiveButton(R.string.action_add, (dialog, which) -> {
-                    String name = editName.getText().toString().trim();
-                    String phone = editPhone.getText().toString().trim();
+        btnCancel.setOnClickListener(v -> formDialog.dismiss());
+        btnSubmit.setOnClickListener(v -> {
+            String name = editName.getText().toString().trim();
+            String phone = editPhone.getText().toString().trim();
 
-                    if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
-                        ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
-                        if (editSearch != null && !TextUtils.isEmpty(editSearch.getText())) {
-                            editSearch.setText("");
-                        }
-                        refreshContacts();
-                        Toast.makeText(getContext(), "Contact added: " + name, Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
+            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
+                ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
+                if (editSearch != null && !TextUtils.isEmpty(editSearch.getText())) {
+                    editSearch.setText("");
+                }
+                refreshContacts();
+                formDialog.dismiss();
+                Toast.makeText(getContext(), "Contact added: " + name, Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        formDialog.show();
+        if (formDialog.getWindow() != null) {
+            formDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            formDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            formDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void refreshContacts() {
