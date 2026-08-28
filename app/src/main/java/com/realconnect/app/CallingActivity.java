@@ -437,17 +437,39 @@ public class CallingActivity extends AppCompatActivity {
     }
 
     private void initializeWebRTC() {
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            audioManager.setSpeakerphoneOn(false);
+        }
+
         PeerConnectionFactory.InitializationOptions initializationOptions =
-                PeerConnectionFactory.InitializationOptions.builder(this).createInitializationOptions();
+                PeerConnectionFactory.InitializationOptions.builder(this)
+                        .setEnableInternalTracer(true)
+                        .createInitializationOptions();
         PeerConnectionFactory.initialize(initializationOptions);
 
+        org.webrtc.audio.AudioDeviceModule adm = org.webrtc.audio.JavaAudioDeviceModule.builder(this)
+                .setUseHardwareAcousticEchoCanceler(true)
+                .setUseHardwareNoiseSuppressor(true)
+                .createAudioDeviceModule();
+
         factory = PeerConnectionFactory.builder()
+                .setAudioDeviceModule(adm)
                 .setOptions(new PeerConnectionFactory.Options())
                 .createPeerConnectionFactory();
 
         MediaConstraints audioConstraints = new MediaConstraints();
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googEchoCancellation", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googAutoGainControl", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googHighpassFilter", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("googTypingNoiseDetection", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("echoCancellation", "true"));
+        audioConstraints.mandatory.add(new MediaConstraints.KeyValuePair("noiseSuppression", "true"));
+
         audioSource = factory.createAudioSource(audioConstraints);
         localAudioTrack = factory.createAudioTrack("101", audioSource);
+        localAudioTrack.setEnabled(true);
 
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
@@ -467,11 +489,28 @@ public class CallingActivity extends AppCompatActivity {
                 signalingClient.sendIceCandidate(targetPhone, iceCandidate);
             }
             @Override public void onIceCandidatesRemoved(IceCandidate[] i) {}
-            @Override public void onAddStream(MediaStream m) {}
+            @Override
+            public void onAddStream(MediaStream m) {
+                Log.d(TAG, "Remote stream added: " + (m != null ? m.getId() : "null"));
+                if (m != null && !m.audioTracks.isEmpty()) {
+                    for (AudioTrack track : m.audioTracks) {
+                        track.setEnabled(true);
+                        track.setVolume(1.0);
+                    }
+                }
+            }
             @Override public void onRemoveStream(MediaStream m) {}
             @Override public void onDataChannel(DataChannel d) {}
             @Override public void onRenegotiationNeeded() {}
-            @Override public void onAddTrack(RtpReceiver r, MediaStream[] m) {}
+            @Override
+            public void onAddTrack(RtpReceiver r, MediaStream[] m) {
+                Log.d(TAG, "Remote track added: " + (r != null && r.track() != null ? r.track().kind() : "null"));
+                if (r != null && r.track() instanceof AudioTrack) {
+                    AudioTrack remoteAudio = (AudioTrack) r.track();
+                    remoteAudio.setEnabled(true);
+                    remoteAudio.setVolume(1.0);
+                }
+            }
         });
 
         peerConnection.addTrack(localAudioTrack);
@@ -577,6 +616,11 @@ public class CallingActivity extends AppCompatActivity {
         if (peerConnection != null) peerConnection.dispose();
         if (audioSource != null) audioSource.dispose();
         if (factory != null) factory.dispose();
+
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.setSpeakerphoneOn(false);
+        }
 
         CallService.resumeListening();
     }
