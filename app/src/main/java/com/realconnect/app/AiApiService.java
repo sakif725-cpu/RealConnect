@@ -27,16 +27,7 @@ public interface AiApiService {
 
     class VoiceAnalysisResponse {
         public boolean isBot;
-        public boolean isScammer;
-        public String scamType;
         public float confidence;
-        public int riskScore;
-        public String riskLevel;
-        public String intention;
-        public String summary;
-        public String behaviorSummary;
-        public String recommendation;
-        public java.util.List<String> threatIndicators;
     }
 
     class VerificationResponse {

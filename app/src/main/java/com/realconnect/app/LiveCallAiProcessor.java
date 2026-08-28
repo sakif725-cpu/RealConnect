@@ -4,8 +4,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import java.util.ArrayList;
-import java.util.List;
 
 public class LiveCallAiProcessor {
 
@@ -29,14 +27,7 @@ public class LiveCallAiProcessor {
     private Runnable tickerRunnable;
     private byte[] latestAudioBytes;
     private boolean isSyntheticVoiceDetected = false;
-    private boolean isScammerDetected = false;
     private boolean isSpamFromRender = false;
-    private String serverIntention = null;
-    private String serverSummary = null;
-    private String serverRecommendation = null;
-    private int serverRiskScore = -1;
-    private List<String> serverThreatIndicators = new ArrayList<>();
-
     private LiveRiskResult currentRiskResult;
 
     public LiveCallAiProcessor(Context context, String phone, String name, boolean isPreFlaggedSpam, AiScanListener listener) {
@@ -53,12 +44,6 @@ public class LiveCallAiProcessor {
         isRunning = true;
         secondsElapsed = 0;
         isSyntheticVoiceDetected = false;
-        isScammerDetected = false;
-        serverIntention = null;
-        serverSummary = null;
-        serverRecommendation = null;
-        serverRiskScore = -1;
-        serverThreatIndicators.clear();
 
         Log.d(TAG, "Connecting to Render AI backend (https://ai-detection-sys.onrender.com)...");
         queryRenderSpamCheck();
@@ -76,7 +61,7 @@ public class LiveCallAiProcessor {
     }
 
     public String getCapturedTranscript() {
-        return "🎙️ Live Audio Stream Active (Streaming to AI Backend https://ai-detection-sys.onrender.com)";
+        return "🎙️ Live Audio Stream Active (Connected to AI Backend https://ai-detection-sys.onrender.com)";
     }
 
     public LiveRiskResult getCurrentRiskResult() {
@@ -141,8 +126,12 @@ public class LiveCallAiProcessor {
                 analyzeAcoustics(audioBytes);
 
                 Log.d(TAG, "Sending " + audioBytes.length + " bytes to Render POST /voice-analysis...");
-                AiService.analyzeVoiceBehavior(audioBytes, response -> {
-                    processServerBehaviorResponse(response);
+                AiService.detectBot(audioBytes, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis response: isBot=" + isBot);
+                    if (isBot) {
+                        isSyntheticVoiceDetected = true;
+                    }
+                    evaluateLiveContext();
                 });
             }
 
@@ -150,39 +139,12 @@ public class LiveCallAiProcessor {
             public void onError(String errorMessage) {
                 Log.w(TAG, "Audio capture skipped: " + errorMessage);
                 byte[] fallbackWav = WavUtils.pcmToWav(new byte[16000 * 2 * 2], 16000, 1, 16);
-                AiService.analyzeVoiceBehavior(fallbackWav, response -> {
-                    processServerBehaviorResponse(response);
+                AiService.detectBot(fallbackWav, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis (fallback) response: isBot=" + isBot);
+                    evaluateLiveContext();
                 });
             }
         });
-    }
-
-    private void processServerBehaviorResponse(AiApiService.VoiceAnalysisResponse response) {
-        if (response == null) return;
-        Log.d(TAG, "Render Voice/Behavior Analysis Response: isBot=" + response.isBot +
-                ", isScammer=" + response.isScammer + ", intention=" + response.intention);
-
-        if (response.isBot) isSyntheticVoiceDetected = true;
-        if (response.isScammer) isScammerDetected = true;
-        if (response.intention != null && !response.intention.trim().isEmpty()) {
-            serverIntention = response.intention.trim();
-        }
-        if (response.summary != null && !response.summary.trim().isEmpty()) {
-            serverSummary = response.summary.trim();
-        } else if (response.behaviorSummary != null && !response.behaviorSummary.trim().isEmpty()) {
-            serverSummary = response.behaviorSummary.trim();
-        }
-        if (response.recommendation != null && !response.recommendation.trim().isEmpty()) {
-            serverRecommendation = response.recommendation.trim();
-        }
-        if (response.riskScore > 0) {
-            serverRiskScore = response.riskScore;
-        }
-        if (response.threatIndicators != null && !response.threatIndicators.isEmpty()) {
-            serverThreatIndicators = new ArrayList<>(response.threatIndicators);
-        }
-
-        evaluateLiveContext();
     }
 
     private void analyzeAcoustics(byte[] audioBytes) {
@@ -213,39 +175,26 @@ public class LiveCallAiProcessor {
 
     private void evaluateLiveContext() {
         AiIntentAnalyzer.analyzeCallerIntent("", phone, name, intentResult -> {
-            LiveRiskResult.Level riskLevel = (isScammerDetected || isSyntheticVoiceDetected) ? LiveRiskResult.Level.HIGH : intentResult.riskLevel;
-            int finalScore = serverRiskScore > 0 ? serverRiskScore : (isScammerDetected ? 95 : (isSyntheticVoiceDetected ? 90 : intentResult.riskScore));
-            String finalSummary = serverSummary != null ? serverSummary : intentResult.summary;
-            String finalRec = serverRecommendation != null ? serverRecommendation : intentResult.recommendation;
-            String finalIntent = serverIntention != null ? serverIntention : intentResult.intention;
-
             LiveRiskResult res = new LiveRiskResult(
-                    riskLevel,
-                    finalScore,
-                    finalSummary,
-                    finalRec
+                    intentResult.riskLevel,
+                    intentResult.riskScore,
+                    intentResult.summary,
+                    intentResult.recommendation
             );
             res.setContextEvaluated(true);
             res.setListeningDurationSeconds(secondsElapsed);
             res.setBot(isSyntheticVoiceDetected);
             res.setSpam(isSpamFromRender);
             res.setTranscriptExcerpt(getCapturedTranscript());
-            res.setCallerIntent(finalIntent);
+            res.setCallerIntent(intentResult.intention);
 
-            if (!serverThreatIndicators.isEmpty()) {
-                for (String ind : serverThreatIndicators) {
-                    res.addIndicator(ind.startsWith("•") ? ind : "• " + ind);
-                }
-            } else {
-                for (String ind : intentResult.threatIndicators) {
-                    res.addIndicator(ind);
-                }
+            for (String ind : intentResult.threatIndicators) {
+                res.addIndicator(ind);
             }
-
-            if (isSyntheticVoiceDetected && !res.getIndicators().contains("• Render AI Voice Analysis: Synthetic bot voice detected")) {
+            if (isSyntheticVoiceDetected) {
                 res.addIndicator("• Render AI Voice Analysis: Synthetic bot voice detected");
             }
-            if (isSpamFromRender && !res.getIndicators().contains("• Render Spam Check: Number flagged on global databases")) {
+            if (isSpamFromRender) {
                 res.addIndicator("• Render Spam Check: Number flagged on global databases");
             }
 
