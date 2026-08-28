@@ -116,6 +116,11 @@ public class CallingActivity extends AppCompatActivity {
         controlsContainer = findViewById(R.id.controls_container);
 
         String name = getIntent().getStringExtra("CONTACT_NAME");
+        String resolvedName = ContactRepository.getInstance(this).getDisplayName(targetPhone);
+        if (resolvedName != null && !resolvedName.equals(targetPhone)) {
+            name = resolvedName;
+        }
+
         ImageView imgAvatarCalling = findViewById(R.id.img_avatar_calling);
         loadCallerAvatar(imgAvatarCalling, targetPhone, name);
 
@@ -205,12 +210,18 @@ public class CallingActivity extends AppCompatActivity {
                                 String base64 = snapshot.child("profileImageBase64").getValue(String.class);
                                 String remoteName = snapshot.child("name").getValue(String.class);
 
+                                if (remoteName != null && !remoteName.trim().isEmpty()) {
+                                    ContactRepository.getInstance(CallingActivity.this).saveCachedRegisteredName(phone, remoteName);
+                                }
+
                                 runOnUiThread(() -> {
-                                    if (remoteName != null && !remoteName.trim().isEmpty() && (name == null || name.isEmpty() || name.equals(phone))) {
+                                    String localSaved = ContactRepository.getInstance(CallingActivity.this).findContactByNumber(phone);
+                                    if (localSaved == null && remoteName != null && !remoteName.trim().isEmpty()) {
                                         TextView textCallerName = findViewById(R.id.text_caller_name);
                                         if (textCallerName != null) {
                                             textCallerName.setText(remoteName);
                                         }
+                                        ActiveCallSession.getInstance().updateCallerName(remoteName);
                                     }
 
                                     if (base64 != null && !base64.trim().isEmpty()) {

@@ -286,16 +286,16 @@ public class ChatActivity extends AppCompatActivity {
                 destroySignaling();
 
                 AiService.checkSpam(callerPhone, isSpam -> {
-                    Intent intent = new Intent(ChatActivity.this, CallingActivity.class);
-                    intent.putExtra("IS_INCOMING", true);
-                    intent.putExtra("IS_SPAM", isSpam);
-                    intent.putExtra("REMOTE_OFFER", description.description);
-                    intent.putExtra("CONTACT_PHONE", callerPhone);
+                    ContactRepository.getInstance(ChatActivity.this).resolveCallerName(callerPhone, callerName -> {
+                        Intent intent = new Intent(ChatActivity.this, CallingActivity.class);
+                        intent.putExtra("IS_INCOMING", true);
+                        intent.putExtra("IS_SPAM", isSpam);
+                        intent.putExtra("REMOTE_OFFER", description.description);
+                        intent.putExtra("CONTACT_PHONE", callerPhone);
+                        intent.putExtra("CONTACT_NAME", callerName);
 
-                    String callerName = ContactRepository.getInstance(ChatActivity.this).findContactByNumber(callerPhone);
-                    intent.putExtra("CONTACT_NAME", callerName != null ? callerName : callerPhone);
-
-                    startActivity(intent);
+                        startActivity(intent);
+                    });
                 });
             }
         });

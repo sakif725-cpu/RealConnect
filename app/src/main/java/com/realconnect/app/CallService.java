@@ -183,10 +183,9 @@ public class CallService extends Service {
                 destroySignaling();
 
                 AiService.checkSpam(callerPhone, isSpam -> {
-                    String callerName = ContactRepository.getInstance(CallService.this).findContactByNumber(callerPhone);
-                    String displayName = (callerName != null && !callerName.isEmpty()) ? callerName : callerPhone;
-
-                    showIncomingCall(callerPhone, displayName, isSpam, description.description);
+                    ContactRepository.getInstance(CallService.this).resolveCallerName(callerPhone, displayName -> {
+                        showIncomingCall(callerPhone, displayName, isSpam, description.description);
+                    });
                 });
             }
         });

@@ -96,8 +96,12 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
         GroupedCallLog group = groupedLogs.get(position);
         CallLogEntry entry = group.getLatestEntry();
 
-        String displayName = (entry.getContactName() != null && !entry.getContactName().isEmpty())
-                ? entry.getContactName() : entry.getPhoneNumber();
+        String displayName = ContactRepository.getInstance(holder.itemView.getContext()).getDisplayName(entry.getPhoneNumber());
+        if (displayName == null || displayName.equals(entry.getPhoneNumber())) {
+            if (entry.getContactName() != null && !entry.getContactName().isEmpty()) {
+                displayName = entry.getContactName();
+            }
+        }
         if (displayName == null) displayName = "Unknown";
 
         if (group.getCount() > 1) {
@@ -106,7 +110,7 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
             holder.textName.setText(displayName);
         }
 
-        AvatarHelper.loadAvatar(holder.itemView.getContext(), holder.imgAvatar, entry.getPhoneNumber(), entry.getContactName());
+        AvatarHelper.loadAvatar(holder.itemView.getContext(), holder.imgAvatar, entry.getPhoneNumber(), displayName);
 
         // Format Date / Time
         String timeStr;

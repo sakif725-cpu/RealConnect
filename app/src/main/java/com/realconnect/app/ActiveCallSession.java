@@ -46,6 +46,13 @@ public class ActiveCallSession {
         }
     }
 
+    public synchronized void updateCallerName(String name) {
+        if (name != null && !name.trim().isEmpty()) {
+            this.callerName = name;
+            notifyStateChanged();
+        }
+    }
+
     public synchronized void updateMute(boolean muted) {
         this.isMuted = muted;
         for (CallSessionListener l : new ArrayList<>(listeners)) {

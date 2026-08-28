@@ -62,8 +62,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
         String cleanSender = ChatRepository.cleanPhone(message.getSenderPhone());
         String targetPhone = cleanSender.equals(selfPhone) ? message.getReceiverPhone() : message.getSenderPhone();
 
-        String contactName = ContactRepository.getInstance(context).findContactByNumber(targetPhone);
-        String displayName = (contactName != null && !contactName.trim().isEmpty()) ? contactName : targetPhone;
+        String displayName = ContactRepository.getInstance(context).getDisplayName(targetPhone);
 
         holder.textName.setText(displayName != null && !displayName.isEmpty() ? displayName : "Unknown");
         holder.textLastMessage.setText(message.getText());
