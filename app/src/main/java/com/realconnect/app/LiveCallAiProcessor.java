@@ -47,6 +47,7 @@ public class LiveCallAiProcessor {
 
         Log.d(TAG, "Connecting to Render AI backend (https://ai-detection-sys.onrender.com)...");
         queryRenderSpamCheck();
+        captureAndSendAudioToRender();
 
         startTicker();
     }
@@ -90,8 +91,8 @@ public class LiveCallAiProcessor {
 
                 secondsElapsed++;
 
-                // Trigger Render voice-analysis audio snippet at 4s, 14s, 28s
-                if (secondsElapsed == 4 || secondsElapsed == 14 || secondsElapsed == 28) {
+                // Trigger Render voice-analysis audio snippet at 3s, 10s, 20s, 30s...
+                if (secondsElapsed == 3 || secondsElapsed % 10 == 0) {
                     captureAndSendAudioToRender();
                 }
 
