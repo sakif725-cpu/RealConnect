@@ -22,7 +22,7 @@
             android:orientation="vertical"
             android:paddingVertical="6dp">
 
-            <!-- 1. Copy Message -->
+            <!-- 1. Copy -->
             <LinearLayout
                 android:id="@+id/action_copy_msg"
                 android:layout_width="match_parent"
@@ -46,7 +46,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Copy Text"
+                    android:text="Copy"
                     android:textColor="#1E293B"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -56,7 +56,7 @@
                 android:layout_height="1dp"
                 android:background="#F1F5F9" />
 
-            <!-- 2. Share Message -->
+            <!-- 2. Share -->
             <LinearLayout
                 android:id="@+id/action_share_msg"
                 android:layout_width="match_parent"
@@ -80,7 +80,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Share Message"
+                    android:text="Share"
                     android:textColor="#1E293B"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -90,7 +90,7 @@
                 android:layout_height="1dp"
                 android:background="#F1F5F9" />
 
-            <!-- 3. Delete Message -->
+            <!-- 3. Delete -->
             <LinearLayout
                 android:id="@+id/action_delete_msg"
                 android:layout_width="match_parent"
@@ -114,7 +114,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Delete Message"
+                    android:text="Delete"
                     android:textColor="#EF4444"
                     android:textSize="14sp" />
             </LinearLayout>

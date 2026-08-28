@@ -176,12 +176,12 @@ public class ContactsFragment extends Fragment {
         // 4. Block / Unblock Contact
         boolean isCurrentlyBlocked = BlockedNumbersManager.isBlocked(requireContext(), contact.getPhoneNumber());
         if (isCurrentlyBlocked) {
-            textBlockTitle.setText("Unblock Number");
+            textBlockTitle.setText("Unblock");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
             imgBlockIcon.setImageResource(R.drawable.ic_contacts);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
         } else {
-            textBlockTitle.setText("Block Number");
+            textBlockTitle.setText("Block");
             textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
             imgBlockIcon.setImageResource(R.drawable.ic_block);
             imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));

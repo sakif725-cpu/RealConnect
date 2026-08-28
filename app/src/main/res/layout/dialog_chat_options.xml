@@ -22,7 +22,7 @@
             android:orientation="vertical"
             android:paddingVertical="6dp">
 
-            <!-- 1. Copy Phone Number -->
+            <!-- 1. Copy -->
             <LinearLayout
                 android:id="@+id/action_copy_chat_phone"
                 android:layout_width="match_parent"
@@ -46,7 +46,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Copy Phone Number"
+                    android:text="Copy"
                     android:textColor="#1E293B"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -56,7 +56,7 @@
                 android:layout_height="1dp"
                 android:background="#F1F5F9" />
 
-            <!-- 2. Block / Unblock Number -->
+            <!-- 2. Block / Unblock -->
             <LinearLayout
                 android:id="@+id/action_block_chat"
                 android:layout_width="match_parent"
@@ -82,7 +82,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Block Number"
+                    android:text="Block"
                     android:textColor="#D97706"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -92,7 +92,7 @@
                 android:layout_height="1dp"
                 android:background="#F1F5F9" />
 
-            <!-- 3. Delete Conversation -->
+            <!-- 3. Delete -->
             <LinearLayout
                 android:id="@+id/action_delete_chat"
                 android:layout_width="match_parent"
@@ -116,7 +116,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Delete Conversation"
+                    android:text="Delete"
                     android:textColor="#EF4444"
                     android:textSize="14sp" />
             </LinearLayout>
