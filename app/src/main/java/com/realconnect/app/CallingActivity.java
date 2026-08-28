@@ -310,6 +310,15 @@ public class CallingActivity extends AppCompatActivity {
                     }
                 });
             }
+
+            @Override
+            public void onTranscriptReceived(String text) {
+                runOnUiThread(() -> {
+                    if (transcriptLogger != null) {
+                        transcriptLogger.addLiveTranscriptSentence(text);
+                    }
+                });
+            }
         });
 
         aiProcessor.start();

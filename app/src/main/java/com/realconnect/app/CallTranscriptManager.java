@@ -236,6 +236,26 @@ public class CallTranscriptManager {
         }
     }
 
+    public void addLiveTranscriptSentence(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        String cleanSentence = text.trim();
+        String timestamp = timestampFormatter.format(new Date());
+
+        synchronized (sessionTranscript) {
+            String line = String.format("[%s] %s", timestamp, cleanSentence);
+            if (sessionTranscript.length() > 0) {
+                sessionTranscript.append("\n");
+            }
+            sessionTranscript.append(line);
+        }
+
+        appendSentenceToFile(timestamp, cleanSentence);
+
+        if (listener != null) {
+            mainHandler.post(() -> listener.onSentenceLogged(timestamp, cleanSentence));
+        }
+    }
+
     private void appendSentenceToFile(@NonNull String timestamp, @NonNull String sentence) {
         synchronized (fileLock) {
             BufferedWriter writer = null;

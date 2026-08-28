@@ -28,6 +28,7 @@ public interface AiApiService {
     class VoiceAnalysisResponse {
         public boolean isBot;
         public float confidence;
+        public String transcript;
     }
 
     class VerificationResponse {
