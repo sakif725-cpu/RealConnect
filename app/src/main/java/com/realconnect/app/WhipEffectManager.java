@@ -57,22 +57,22 @@ public class WhipEffectManager {
     public static void animateWhip(View view) {
         if (view == null) return;
 
-        // Stage 1: Quick Windup (tilt back & stretch)
+        // Stage 1: Windup (tilt back & stretch)
         view.animate()
-                .rotation(-24f)
-                .translationX(-18f)
-                .scaleX(0.9f)
-                .scaleY(1.1f)
-                .setDuration(75)
+                .rotation(-22f)
+                .translationX(-16f)
+                .scaleX(0.92f)
+                .scaleY(1.08f)
+                .setDuration(130)
                 .setInterpolator(new AccelerateDecelerateInterpolator())
                 .withEndAction(() -> {
-                    // Stage 2: Fast Whipping Snap (forward slash & squash)
+                    // Stage 2: Whipping Snap (forward slash & squash)
                     view.animate()
-                            .rotation(36f)
-                            .translationX(28f)
-                            .scaleX(1.3f)
-                            .scaleY(0.72f)
-                            .setDuration(95)
+                            .rotation(32f)
+                            .translationX(24f)
+                            .scaleX(1.26f)
+                            .scaleY(0.76f)
+                            .setDuration(160)
                             .setInterpolator(new AccelerateDecelerateInterpolator())
                             .withEndAction(() -> {
                                 // Stage 3: Elastic Rebound Vibration back to neutral
@@ -81,8 +81,8 @@ public class WhipEffectManager {
                                         .translationX(0f)
                                         .scaleX(1.0f)
                                         .scaleY(1.0f)
-                                        .setDuration(260)
-                                        .setInterpolator(new OvershootInterpolator(3.8f))
+                                        .setDuration(390)
+                                        .setInterpolator(new OvershootInterpolator(3.6f))
                                         .start();
                             }).start();
                 }).start();
@@ -95,7 +95,7 @@ public class WhipEffectManager {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK));
                 } else {
-                    vibrator.vibrate(40);
+                    vibrator.vibrate(50);
                 }
             }
         } catch (Exception ignored) {}
@@ -105,37 +105,37 @@ public class WhipEffectManager {
         if (synthesizedWhipBuffer != null) return synthesizedWhipBuffer;
 
         int sampleRate = 44100;
-        int numSamples = (int) (sampleRate * 0.32); // 320ms duration
+        int numSamples = (int) (sampleRate * 0.48); // 480ms duration
         short[] buffer = new short[numSamples];
         Random random = new Random();
 
-        // 0.00s -> 0.10s : Rising whoosh windup
-        int whooshSamples = (int) (sampleRate * 0.10);
+        // 0.00s -> 0.22s : Smooth rising whoosh windup
+        int whooshSamples = (int) (sampleRate * 0.22);
         for (int i = 0; i < whooshSamples; i++) {
             double t = (double) i / whooshSamples;
-            double freq = 200.0 + (900.0 * t * t);
+            double freq = 180.0 + (850.0 * t * t);
             double sin = Math.sin(2.0 * Math.PI * freq * (double) i / sampleRate);
-            double noise = (random.nextDouble() * 2.0 - 1.0) * 0.4;
-            double env = t * t * 0.5;
+            double noise = (random.nextDouble() * 2.0 - 1.0) * 0.35;
+            double env = t * t * 0.45;
             buffer[i] = (short) ((sin + noise) * env * Short.MAX_VALUE);
         }
 
-        // 0.10s -> 0.13s : High energy whip crack impact
+        // 0.22s -> 0.26s : High energy whip crack impact
         int snapStart = whooshSamples;
-        int snapSamples = (int) (sampleRate * 0.03);
+        int snapSamples = (int) (sampleRate * 0.04);
         for (int i = 0; i < snapSamples; i++) {
             double t = (double) i / snapSamples;
             double noise = (random.nextDouble() * 2.0 - 1.0);
             double impulse = (i % 2 == 0 ? 1.0 : -1.0) * (1.0 - t * 0.5);
-            buffer[snapStart + i] = (short) ((noise * 0.7 + impulse * 0.3) * Short.MAX_VALUE);
+            buffer[snapStart + i] = (short) ((noise * 0.75 + impulse * 0.25) * Short.MAX_VALUE);
         }
 
-        // 0.13s -> 0.32s : Exponential decay snap tail
+        // 0.26s -> 0.48s : Exponential decay snap tail
         int tailStart = snapStart + snapSamples;
         int tailSamples = numSamples - tailStart;
         for (int i = 0; i < tailSamples; i++) {
             double t = (double) i / tailSamples;
-            double decay = Math.exp(-12.0 * t);
+            double decay = Math.exp(-10.0 * t);
             double noise = (random.nextDouble() * 2.0 - 1.0) * decay;
             buffer[tailStart + i] = (short) (noise * Short.MAX_VALUE * 0.85);
         }
