@@ -160,6 +160,13 @@ public class CallingActivity extends AppCompatActivity {
             }
         }
 
+        View btnMinimize = findViewById(R.id.btn_minimize_call);
+        if (btnMinimize != null) {
+            btnMinimize.setOnClickListener(v -> minimizeCall());
+        }
+
+        ActiveCallSession.getInstance().startSession(this, getIntent().getStringExtra("CONTACT_NAME"), targetPhone);
+
         setupActions();
         setupSignaling();
     }
@@ -558,8 +565,11 @@ public class CallingActivity extends AppCompatActivity {
             }
 
             // Real call actions
-            if (labelRes == R.string.label_mute && localAudioTrack != null) {
-                localAudioTrack.setEnabled(!isSelected);
+            if (labelRes == R.string.label_mute) {
+                if (localAudioTrack != null) {
+                    localAudioTrack.setEnabled(!isSelected);
+                }
+                ActiveCallSession.getInstance().updateMute(isSelected);
             } else if (labelRes == R.string.label_speaker) {
                 audioManager.setSpeakerphoneOn(isSelected);
             } else if (labelRes == R.string.label_ai_mode) {
@@ -592,12 +602,40 @@ public class CallingActivity extends AppCompatActivity {
                 if (running) {
                     int mins = (seconds % 3600) / 60;
                     int secs = seconds % 60;
-                    textCallTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", mins, secs));
+                    String formatted = String.format(Locale.getDefault(), "%02d:%02d", mins, secs);
+                    textCallTimer.setText(formatted);
+                    ActiveCallSession.getInstance().updateDuration(formatted);
                     seconds++;
                     handler.postDelayed(this, 1000);
                 }
             }
         });
+    }
+
+    public void minimizeCall() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        startActivity(intent);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isConnected || running) {
+            minimizeCall();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    public void endCallFromBanner() {
+        endCall();
+    }
+
+    public void toggleMuteFromBanner() {
+        View muteView = findViewById(R.id.action_mute);
+        if (muteView != null) {
+            muteView.performClick();
+        }
     }
 
     private boolean checkPermissions() {
@@ -613,6 +651,7 @@ public class CallingActivity extends AppCompatActivity {
         super.onDestroy();
         running = false;
         stopRinging();
+        ActiveCallSession.getInstance().endSession();
         if (aiProcessor != null) {
             aiProcessor.stop();
             aiProcessor = null;

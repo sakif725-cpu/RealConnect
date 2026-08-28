@@ -16,6 +16,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
+import android.view.View;
+import android.widget.TextView;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -25,6 +27,13 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private ChatRepository.OnMessageReceivedListener messageListener;
     private CallLogRepository.OnCallLogsChangedListener callLogsListener;
+
+    private View bannerActiveCall;
+    private TextView textBannerCaller;
+    private TextView textBannerTimer;
+    private android.widget.ImageButton btnBannerMute;
+    private android.widget.ImageButton btnBannerEndCall;
+    private ActiveCallSession.CallSessionListener callSessionListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(0, 0, 0, systemBars.bottom);
             return insets;
         });
+
+        setupActiveCallBanner();
 
         bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setOnItemSelectedListener(item -> {
@@ -164,6 +175,74 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void setupActiveCallBanner() {
+        bannerActiveCall = findViewById(R.id.banner_active_call);
+        textBannerCaller = findViewById(R.id.text_banner_caller);
+        textBannerTimer = findViewById(R.id.text_banner_timer);
+        btnBannerMute = findViewById(R.id.btn_banner_mute);
+        btnBannerEndCall = findViewById(R.id.btn_banner_end_call);
+
+        if (bannerActiveCall != null) {
+            bannerActiveCall.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(MainActivity.this, CallingActivity.class);
+                intent.setFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                startActivity(intent);
+            });
+        }
+
+        if (btnBannerEndCall != null) {
+            btnBannerEndCall.setOnClickListener(v -> {
+                ActiveCallSession.getInstance().requestEndCall();
+            });
+        }
+
+        if (btnBannerMute != null) {
+            btnBannerMute.setOnClickListener(v -> {
+                ActiveCallSession.getInstance().requestToggleMute();
+            });
+        }
+
+        callSessionListener = new ActiveCallSession.CallSessionListener() {
+            @Override
+            public void onCallStateChanged(boolean isActive) {
+                runOnUiThread(() -> {
+                    if (bannerActiveCall == null) return;
+                    if (isActive) {
+                        bannerActiveCall.setVisibility(android.view.View.VISIBLE);
+                        if (textBannerCaller != null) {
+                            textBannerCaller.setText(ActiveCallSession.getInstance().getCallerName());
+                        }
+                        if (textBannerTimer != null) {
+                            textBannerTimer.setText(ActiveCallSession.getInstance().getFormattedDuration() + " • Tap to return to call");
+                        }
+                    } else {
+                        bannerActiveCall.setVisibility(android.view.View.GONE);
+                    }
+                });
+            }
+
+            @Override
+            public void onTimerTick(String formattedTime) {
+                runOnUiThread(() -> {
+                    if (bannerActiveCall != null && bannerActiveCall.getVisibility() == android.view.View.VISIBLE && textBannerTimer != null) {
+                        textBannerTimer.setText(formattedTime + " • Tap to return to call");
+                    }
+                });
+            }
+
+            @Override
+            public void onMuteChanged(boolean isMuted) {
+                runOnUiThread(() -> {
+                    if (btnBannerMute != null) {
+                        btnBannerMute.setImageResource(isMuted ? R.drawable.ic_mic_off : R.drawable.ic_mic);
+                    }
+                });
+            }
+        };
+
+        ActiveCallSession.getInstance().addListener(callSessionListener);
+    }
+
     private void loadFragment(Fragment fragment) {
         getSupportFragmentManager().beginTransaction()
                 .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
@@ -174,6 +253,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (callSessionListener != null) {
+            ActiveCallSession.getInstance().removeListener(callSessionListener);
+        }
         if (messageListener != null) {
             ChatRepository.getInstance(this).removeGlobalListener(messageListener);
         }
