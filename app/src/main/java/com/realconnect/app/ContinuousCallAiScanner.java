@@ -1,11 +1,18 @@
 package com.realconnect.app;
 
 import android.content.Context;
+import android.content.Intent;
+import android.media.AudioManager;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.util.Log;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Locale;
 
 public class ContinuousCallAiScanner {
 
@@ -26,6 +33,10 @@ public class ContinuousCallAiScanner {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean isRunning = false;
     private int secondsElapsed = 0;
+    private final StringBuilder accumulatedTranscript = new StringBuilder();
+
+    private SpeechRecognizer speechRecognizer;
+    private AudioManager audioManager;
     private Runnable tickerRunnable;
 
     // Acoustic features accumulated during call
@@ -39,14 +50,17 @@ public class ContinuousCallAiScanner {
         this.name = name;
         this.isPreFlaggedSpam = isPreFlaggedSpam;
         this.listener = listener;
+        this.audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     }
 
     public void start() {
         if (isRunning) return;
         isRunning = true;
         secondsElapsed = 0;
+        accumulatedTranscript.setLength(0);
         isSyntheticPatternDetected = false;
 
+        initSilentSpeechRecognizer();
         startTicker();
     }
 
@@ -55,6 +69,101 @@ public class ContinuousCallAiScanner {
         if (tickerRunnable != null) {
             handler.removeCallbacks(tickerRunnable);
             tickerRunnable = null;
+        }
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer.stopListening();
+                speechRecognizer.cancel();
+                speechRecognizer.destroy();
+            } catch (Exception ignored) {}
+            speechRecognizer = null;
+        }
+    }
+
+    private void initSilentSpeechRecognizer() {
+        try {
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                Log.w(TAG, "SpeechRecognizer not available");
+                return;
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+                speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context);
+            } else {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context);
+            }
+
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override public void onReadyForSpeech(Bundle params) {}
+                @Override public void onBeginningOfSpeech() {}
+                @Override public void onRmsChanged(float rmsdB) {}
+                @Override public void onBufferReceived(byte[] buffer) {}
+                @Override public void onEndOfSpeech() {}
+                @Override public void onError(int error) {
+                    if (isRunning && speechRecognizer != null) {
+                        restartSilentListening();
+                    }
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    appendRecognitionResults(results);
+                    if (isRunning) restartSilentListening();
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+                    appendRecognitionResults(partialResults);
+                }
+
+                @Override public void onEvent(int eventType, Bundle params) {}
+            });
+
+            startSilentListeningIntent();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to init SpeechRecognizer", e);
+        }
+    }
+
+    private void startSilentListeningIntent() {
+        if (speechRecognizer == null || !isRunning) return;
+        try {
+            // Temporarily silence system chime stream during startListening
+            if (audioManager != null) {
+                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
+            }
+
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString());
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+            }
+
+            speechRecognizer.startListening(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start listening intent", e);
+        }
+    }
+
+    private void restartSilentListening() {
+        handler.postDelayed(() -> {
+            if (isRunning) startSilentListeningIntent();
+        }, 500);
+    }
+
+    private void appendRecognitionResults(Bundle bundle) {
+        if (bundle == null) return;
+        ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && !matches.isEmpty()) {
+            for (String match : matches) {
+                if (match != null && !match.trim().isEmpty()) {
+                    accumulatedTranscript.append(" ").append(match.trim());
+                    Log.d(TAG, "Spoken phrase captured: " + match.trim());
+                }
+            }
         }
     }
 
@@ -75,9 +184,9 @@ public class ContinuousCallAiScanner {
                     int remaining = INITIAL_CONTEXT_TARGET_SECONDS - secondsElapsed;
                     String statusText;
                     if (secondsElapsed <= 10) {
-                        statusText = "AI: LISTENING (" + secondsElapsed + "s/30s) • SAMPLING AUDIO";
+                        statusText = "AI: LISTENING (" + secondsElapsed + "s/30s) • CAPTURING VOICE";
                     } else if (secondsElapsed <= 20) {
-                        statusText = "AI: LISTENING (" + secondsElapsed + "s/30s) • ANALYZING VOICE PATTERNS";
+                        statusText = "AI: LISTENING (" + secondsElapsed + "s/30s) • ANALYZING CONTEXT";
                     } else {
                         statusText = "AI: EVALUATING RISK (" + remaining + "s REMAINING)";
                     }
@@ -114,7 +223,6 @@ public class ContinuousCallAiScanner {
     private void analyzeAcoustics(byte[] audioBytes) {
         if (audioBytes == null || audioBytes.length < 100) return;
 
-        // Calculate RMS Energy and Zero-Crossing Rate (ZCR)
         long sum = 0;
         int zeroCrossings = 0;
         int prevSample = 0;
@@ -135,7 +243,6 @@ public class ContinuousCallAiScanner {
 
         averageEnergy = rms;
 
-        // Abnormally uniform high zero crossing with low energy variance indicates synthetic vocoder / robocall
         if (zcr > 0.35 && rms > 200) {
             isSyntheticPatternDetected = true;
         }
@@ -144,13 +251,14 @@ public class ContinuousCallAiScanner {
     private void evaluateCurrentContext() {
         String contactName = ContactRepository.getInstance(context).findContactByNumber(phone);
         boolean isKnownContact = (contactName != null && !contactName.trim().isEmpty());
+        String currentTranscript = accumulatedTranscript.toString().trim();
 
         if (latestAudioSample != null) {
             AiService.detectBot(latestAudioSample, isBotFromApi -> {
                 AiService.checkSpam(phone, isSpamApi -> {
                     boolean isSpam = isPreFlaggedSpam || isSpamApi;
                     boolean isBot = isBotFromApi || isSyntheticPatternDetected;
-                    LiveRiskResult result = buildFinalRiskResult(isKnownContact, isSpam, isBot);
+                    LiveRiskResult result = buildFinalRiskResult(currentTranscript, isKnownContact, isSpam, isBot);
                     if (listener != null) {
                         new Handler(Looper.getMainLooper()).post(() -> listener.onRiskUpdated(result));
                     }
@@ -159,7 +267,7 @@ public class ContinuousCallAiScanner {
         } else {
             AiService.checkSpam(phone, isSpamApi -> {
                 boolean isSpam = isPreFlaggedSpam || isSpamApi;
-                LiveRiskResult result = buildFinalRiskResult(isKnownContact, isSpam, isSyntheticPatternDetected);
+                LiveRiskResult result = buildFinalRiskResult(currentTranscript, isKnownContact, isSpam, isSyntheticPatternDetected);
                 if (listener != null) {
                     new Handler(Looper.getMainLooper()).post(() -> listener.onRiskUpdated(result));
                 }
@@ -167,8 +275,8 @@ public class ContinuousCallAiScanner {
         }
     }
 
-    private LiveRiskResult buildFinalRiskResult(boolean isKnownContact, boolean isSpam, boolean isBot) {
-        FraudIntelligenceEngine.FraudAssessment assessment = FraudIntelligenceEngine.evaluate("", isKnownContact, isSpam, isBot);
+    private LiveRiskResult buildFinalRiskResult(String transcript, boolean isKnownContact, boolean isSpam, boolean isBot) {
+        FraudIntelligenceEngine.FraudAssessment assessment = FraudIntelligenceEngine.evaluate(transcript, isKnownContact, isSpam, isBot);
 
         LiveRiskResult res = new LiveRiskResult(
                 assessment.riskLevel,
@@ -181,6 +289,7 @@ public class ContinuousCallAiScanner {
         res.setBot(isBot);
         res.setSpam(isSpam);
         res.setTrustedContact(isKnownContact);
+        res.setTranscriptExcerpt(transcript);
 
         for (String ind : assessment.detectedIndicators) {
             res.addIndicator(ind);
