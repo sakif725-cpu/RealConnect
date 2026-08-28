@@ -37,8 +37,6 @@ public class PrivacyActivity extends AppCompatActivity {
         ImageButton btnBack = findViewById(R.id.btn_privacy_back);
         btnBack.setOnClickListener(v -> finish());
 
-        textRecordingsCount = findViewById(R.id.text_recordings_count);
-
         // 1. Recordings (Functional)
         findViewById(R.id.card_option_recordings).setOnClickListener(v -> {
             Intent intent = new Intent(PrivacyActivity.this, RecordingsActivity.class);
@@ -47,59 +45,122 @@ public class PrivacyActivity extends AppCompatActivity {
 
         // 2. Change Phone Number
         findViewById(R.id.card_option_change_phone).setOnClickListener(v -> {
-            new AlertDialog.Builder(PrivacyActivity.this)
-                    .setTitle("Change Phone Number")
-                    .setMessage("Migrate your account information, chat messages, and call logs to a new mobile phone number securely.\n\nThis feature will be available in the upcoming update.")
-                    .setPositiveButton("Got It", null)
-                    .show();
+            android.app.Dialog infoDialog = new android.app.Dialog(PrivacyActivity.this);
+            infoDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View infoView = getLayoutInflater().inflate(R.layout.dialog_confirm_action, null);
+            infoDialog.setContentView(infoView);
+
+            android.widget.TextView textTitle = infoView.findViewById(R.id.text_confirm_title);
+            android.widget.TextView textMsg = infoView.findViewById(R.id.text_confirm_message);
+            android.widget.ImageView imgIcon = infoView.findViewById(R.id.img_confirm_icon);
+            com.google.android.material.card.MaterialCardView iconBg = infoView.findViewById(R.id.card_confirm_icon_bg);
+            com.google.android.material.button.MaterialButton btnAction = infoView.findViewById(R.id.btn_confirm_action);
+            View btnCancel = infoView.findViewById(R.id.btn_confirm_cancel);
+
+            textTitle.setText("Change Phone Number");
+            textMsg.setText("Migrate your account information, chat messages, and call logs to a new mobile phone number securely.\n\nThis feature will be available in the upcoming update.");
+            imgIcon.setImageResource(R.drawable.ic_call);
+            imgIcon.setColorFilter(android.graphics.Color.parseColor("#0EA5E9"));
+            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#F0F9FF"));
+            btnAction.setText("Got It");
+            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#0EA5E9"));
+            btnCancel.setVisibility(View.GONE);
+
+            btnAction.setOnClickListener(cv -> infoDialog.dismiss());
+
+            infoDialog.show();
+            if (infoDialog.getWindow() != null) {
+                infoDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                infoDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                infoDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
         });
 
         // 3. Blocked Numbers
         findViewById(R.id.card_option_blocked_numbers).setOnClickListener(v -> {
             java.util.Set<String> blockedSet = BlockedNumbersManager.getBlockedNumbers(PrivacyActivity.this);
             if (blockedSet.isEmpty()) {
-                new AlertDialog.Builder(PrivacyActivity.this)
-                        .setTitle("Blocked Numbers")
-                        .setMessage("You have not blocked any numbers yet.\n\nTo block a contact, long-press on any contact card in the Contacts tab.")
-                        .setPositiveButton("Got It", null)
-                        .show();
+                android.app.Dialog infoDialog = new android.app.Dialog(PrivacyActivity.this);
+                infoDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+                View infoView = getLayoutInflater().inflate(R.layout.dialog_confirm_action, null);
+                infoDialog.setContentView(infoView);
+
+                android.widget.TextView textTitle = infoView.findViewById(R.id.text_confirm_title);
+                android.widget.TextView textMsg = infoView.findViewById(R.id.text_confirm_message);
+                android.widget.ImageView imgIcon = infoView.findViewById(R.id.img_confirm_icon);
+                com.google.android.material.card.MaterialCardView iconBg = infoView.findViewById(R.id.card_confirm_icon_bg);
+                com.google.android.material.button.MaterialButton btnAction = infoView.findViewById(R.id.btn_confirm_action);
+                View btnCancel = infoView.findViewById(R.id.btn_confirm_cancel);
+
+                textTitle.setText("Blocked Numbers");
+                textMsg.setText("You have not blocked any numbers yet.\n\nTo block a contact or caller, long-press on any item in the Contacts, Calls, or Messages tab.");
+                imgIcon.setImageResource(R.drawable.ic_block);
+                imgIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+                iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
+                btnAction.setText("Got It");
+                btnAction.setBackgroundColor(android.graphics.Color.parseColor("#D97706"));
+                btnCancel.setVisibility(View.GONE);
+
+                btnAction.setOnClickListener(cv -> infoDialog.dismiss());
+
+                infoDialog.show();
+                if (infoDialog.getWindow() != null) {
+                    infoDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                    infoDialog.getWindow().setLayout(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+                    infoDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+                }
             } else {
                 String[] blockedArr = blockedSet.toArray(new String[0]);
                 new AlertDialog.Builder(PrivacyActivity.this)
                         .setTitle("Blocked Numbers (" + blockedArr.length + ")")
                         .setItems(blockedArr, (dialog, which) -> {
                             String selected = blockedArr[which];
-                            new AlertDialog.Builder(PrivacyActivity.this)
-                                    .setTitle("Unblock Number?")
-                                    .setMessage("Allow incoming calls and messages from " + selected + "?")
-                                    .setPositiveButton("Unblock", (d, w) -> {
-                                        BlockedNumbersManager.unblockNumber(PrivacyActivity.this, selected);
-                                        android.widget.Toast.makeText(PrivacyActivity.this, "Unblocked " + selected, android.widget.Toast.LENGTH_SHORT).show();
-                                    })
-                                    .setNegativeButton("Cancel", null)
-                                    .show();
+                            android.app.Dialog unblockDialog = new android.app.Dialog(PrivacyActivity.this);
+                            unblockDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+                            View unblockView = getLayoutInflater().inflate(R.layout.dialog_confirm_action, null);
+                            unblockDialog.setContentView(unblockView);
+
+                            android.widget.TextView textTitle = unblockView.findViewById(R.id.text_confirm_title);
+                            android.widget.TextView textMsg = unblockView.findViewById(R.id.text_confirm_message);
+                            android.widget.ImageView imgIcon = unblockView.findViewById(R.id.img_confirm_icon);
+                            com.google.android.material.card.MaterialCardView iconBg = unblockView.findViewById(R.id.card_confirm_icon_bg);
+                            com.google.android.material.button.MaterialButton btnAction = unblockView.findViewById(R.id.btn_confirm_action);
+                            View btnCancel = unblockView.findViewById(R.id.btn_confirm_cancel);
+
+                            textTitle.setText("Unblock Number");
+                            textMsg.setText("Allow incoming calls and messages from " + selected + "?");
+                            imgIcon.setImageResource(R.drawable.ic_contacts);
+                            imgIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
+                            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#ECFDF5"));
+                            btnAction.setText("Unblock");
+                            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#10B981"));
+
+                            btnCancel.setOnClickListener(cv -> unblockDialog.dismiss());
+                            btnAction.setOnClickListener(cv -> {
+                                unblockDialog.dismiss();
+                                BlockedNumbersManager.unblockNumber(PrivacyActivity.this, selected);
+                                android.widget.Toast.makeText(PrivacyActivity.this, "Unblocked " + selected, android.widget.Toast.LENGTH_SHORT).show();
+                            });
+
+                            unblockDialog.show();
+                            if (unblockDialog.getWindow() != null) {
+                                unblockDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                                unblockDialog.getWindow().setLayout(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                                );
+                                unblockDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+                            }
                         })
                         .setPositiveButton("Close", null)
                         .show();
             }
         });
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateRecordingsCount();
-    }
-
-    private void updateRecordingsCount() {
-        if (textRecordingsCount == null) return;
-        List<CallRecording> list = CallRecordingHelper.getRecordings(this);
-        if (list == null || list.isEmpty()) {
-            textRecordingsCount.setText("No recordings saved yet");
-        } else if (list.size() == 1) {
-            textRecordingsCount.setText("1 call recording saved");
-        } else {
-            textRecordingsCount.setText(list.size() + " call recordings saved");
-        }
     }
 }

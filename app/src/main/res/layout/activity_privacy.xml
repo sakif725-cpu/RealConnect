@@ -69,7 +69,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
-            <!-- Option 1: Recordings (Functional) -->
+            <!-- Option 1: Recordings -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_option_recordings"
                 android:layout_width="match_parent"
@@ -105,30 +105,15 @@
                             app:tint="#EF4444" />
                     </com.google.android.material.card.MaterialCardView>
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Call Recordings"
-                            android:textColor="@color/textColorPrimary"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/text_recordings_count"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Listen to and manage recorded calls"
-                            android:textColor="@color/textColorSecondary"
-                            android:textSize="13sp" />
-                    </LinearLayout>
+                        android:text="Call Recordings"
+                        android:textColor="@color/textColorPrimary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <ImageView
                         android:layout_width="20dp"
@@ -174,29 +159,15 @@
                             app:tint="#22C55E" />
                     </com.google.android.material.card.MaterialCardView>
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Change Phone Number"
-                            android:textColor="@color/textColorPrimary"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Migrate chats and calls to a new phone number"
-                            android:textColor="@color/textColorSecondary"
-                            android:textSize="13sp" />
-                    </LinearLayout>
+                        android:text="Change Phone Number"
+                        android:textColor="@color/textColorPrimary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <ImageView
                         android:layout_width="20dp"
@@ -242,29 +213,15 @@
                             app:tint="#EF4444" />
                     </com.google.android.material.card.MaterialCardView>
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Blocked Numbers"
-                            android:textColor="@color/textColorPrimary"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Manage blocked contacts and scam callers"
-                            android:textColor="@color/textColorSecondary"
-                            android:textSize="13sp" />
-                    </LinearLayout>
+                        android:text="Blocked Numbers"
+                        android:textColor="@color/textColorPrimary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <ImageView
                         android:layout_width="20dp"
