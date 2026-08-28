@@ -127,13 +127,7 @@ public class CallingActivity extends AppCompatActivity {
 
         View badgeAiStatus = findViewById(R.id.ai_status_badge);
         if (badgeAiStatus != null) {
-            badgeAiStatus.setOnClickListener(v -> {
-                if (lastRiskResult != null) {
-                    LiveCallGuard.showLiveRiskSheet(CallingActivity.this, lastRiskResult);
-                } else {
-                    performVoiceAiAnalysis(true);
-                }
-            });
+            badgeAiStatus.setOnClickListener(v -> showLiveTranscriptModal());
         }
 
         // Default UI State: Controls visible for caller, hidden for receiver
@@ -573,11 +567,73 @@ public class CallingActivity extends AppCompatActivity {
             } else if (labelRes == R.string.label_speaker) {
                 audioManager.setSpeakerphoneOn(isSelected);
             } else if (labelRes == R.string.label_ai_mode) {
-                performVoiceAiAnalysis(true);
+                showLiveTranscriptModal();
             } else if (labelRes == R.string.label_record) {
                 toggleCallRecording(isSelected);
             }
         });
+    }
+
+    private void showLiveTranscriptModal() {
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.dialog_live_call_transcript, null);
+        dialog.setContentView(view);
+
+        TextView textTranscriptContent = view.findViewById(R.id.text_live_transcript_content);
+        androidx.core.widget.NestedScrollView scrollView = view.findViewById(R.id.scroll_live_transcript);
+        View btnCopy = view.findViewById(R.id.btn_copy_live_transcript);
+        View btnClose = view.findViewById(R.id.btn_close_live_transcript);
+
+        Runnable updateTranscriptUI = () -> {
+            String fullTranscript = (transcriptLogger != null) ? transcriptLogger.readCompleteTranscript() : "";
+            if (!fullTranscript.trim().isEmpty()) {
+                textTranscriptContent.setText(fullTranscript.trim());
+                if (scrollView != null) {
+                    scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
+                }
+            } else {
+                textTranscriptContent.setText("🎙️ Listening to live audio stream...\nSpeak into the microphone to see real-time transcription.");
+            }
+        };
+
+        updateTranscriptUI.run();
+
+        if (transcriptLogger != null) {
+            transcriptLogger.setOnTranscriptUpdatedListener(new CallTranscriptManager.OnTranscriptUpdatedListener() {
+                @Override
+                public void onSentenceLogged(String timestamp, String text) {
+                    runOnUiThread(updateTranscriptUI::run);
+                }
+
+                @Override
+                public void onError(String errorMessage) {
+                    // Handled internally
+                }
+            });
+        }
+
+        if (btnCopy != null) {
+            btnCopy.setOnClickListener(v -> {
+                String text = (transcriptLogger != null) ? transcriptLogger.readCompleteTranscript() : "";
+                if (!text.trim().isEmpty()) {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    android.content.ClipData clip = android.content.ClipData.newPlainText("Call Transcript", text);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                        Toast.makeText(CallingActivity.this, "Transcript copied to clipboard", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(CallingActivity.this, "No transcript to copy yet", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        dialog.show();
     }
 
     private void toggleCallRecording(boolean start) {
