@@ -27,6 +27,7 @@ public class LiveCallAiProcessor {
     private Runnable tickerRunnable;
     private byte[] latestAudioBytes;
     private boolean isSyntheticVoiceDetected = false;
+    private boolean isSpamFromRender = false;
     private LiveRiskResult currentRiskResult;
 
     public LiveCallAiProcessor(Context context, String phone, String name, boolean isPreFlaggedSpam, AiScanListener listener) {
@@ -35,6 +36,7 @@ public class LiveCallAiProcessor {
         this.name = name;
         this.isPreFlaggedSpam = isPreFlaggedSpam;
         this.listener = listener;
+        this.isSpamFromRender = isPreFlaggedSpam;
     }
 
     public void start() {
@@ -42,6 +44,9 @@ public class LiveCallAiProcessor {
         isRunning = true;
         secondsElapsed = 0;
         isSyntheticVoiceDetected = false;
+
+        Log.d(TAG, "Connecting to Render AI backend (https://ai-detection-sys.onrender.com)...");
+        queryRenderSpamCheck();
 
         startTicker();
     }
@@ -55,7 +60,7 @@ public class LiveCallAiProcessor {
     }
 
     public String getCapturedTranscript() {
-        return "🎙️ Live Audio Stream Active (Monitoring incoming voice stream & acoustic frequency biomarkers)";
+        return "🎙️ Live Audio Stream Active (Connected to AI Backend https://ai-detection-sys.onrender.com)";
     }
 
     public LiveRiskResult getCurrentRiskResult() {
@@ -69,6 +74,14 @@ public class LiveCallAiProcessor {
         return secondsElapsed;
     }
 
+    private void queryRenderSpamCheck() {
+        AiService.checkSpam(phone, isSpam -> {
+            Log.d(TAG, "Render GET /spam-check response for " + phone + ": isSpam=" + isSpam);
+            isSpamFromRender = isPreFlaggedSpam || isSpam;
+            evaluateLiveContext();
+        });
+    }
+
     private void startTicker() {
         tickerRunnable = new Runnable() {
             @Override
@@ -77,9 +90,9 @@ public class LiveCallAiProcessor {
 
                 secondsElapsed++;
 
-                // Silent acoustic buffer sample at 5s, 15s, 30s
-                if (secondsElapsed == 5 || secondsElapsed == 15 || secondsElapsed == 30) {
-                    captureSilentAcousticSample();
+                // Trigger Render voice-analysis audio snippet at 4s, 14s, 28s
+                if (secondsElapsed == 4 || secondsElapsed == 14 || secondsElapsed == 28) {
+                    captureAndSendAudioToRender();
                 }
 
                 // Periodic AI intent re-evaluation
@@ -103,15 +116,28 @@ public class LiveCallAiProcessor {
         handler.postDelayed(tickerRunnable, 1000);
     }
 
-    private void captureSilentAcousticSample() {
+    private void captureAndSendAudioToRender() {
+        Log.d(TAG, "Capturing 2s audio snippet to send to Render POST /voice-analysis...");
         AudioRecorderHelper.captureAudioSnippet(context, 2, new AudioRecorderHelper.AudioCaptureCallback() {
             @Override
             public void onAudioCaptured(byte[] audioBytes) {
                 latestAudioBytes = audioBytes;
                 analyzeAcoustics(audioBytes);
+
+                Log.d(TAG, "Sending " + audioBytes.length + " bytes to Render POST /voice-analysis...");
+                AiService.detectBot(audioBytes, isBot -> {
+                    Log.d(TAG, "Render POST /voice-analysis response: isBot=" + isBot);
+                    if (isBot) {
+                        isSyntheticVoiceDetected = true;
+                    }
+                    evaluateLiveContext();
+                });
             }
 
-            @Override public void onError(String errorMessage) {}
+            @Override
+            public void onError(String errorMessage) {
+                Log.w(TAG, "Audio capture skipped: " + errorMessage);
+            }
         });
     }
 
@@ -152,13 +178,20 @@ public class LiveCallAiProcessor {
             res.setContextEvaluated(true);
             res.setListeningDurationSeconds(secondsElapsed);
             res.setBot(isSyntheticVoiceDetected);
-            res.setSpam(isPreFlaggedSpam);
+            res.setSpam(isSpamFromRender);
             res.setTranscriptExcerpt(getCapturedTranscript());
             res.setCallerIntent(intentResult.intention);
 
             for (String ind : intentResult.threatIndicators) {
                 res.addIndicator(ind);
             }
+            if (isSyntheticVoiceDetected) {
+                res.addIndicator("• Render AI Voice Analysis: Synthetic bot voice detected");
+            }
+            if (isSpamFromRender) {
+                res.addIndicator("• Render Spam Check: Number flagged on global databases");
+            }
+
             for (String kw : intentResult.flaggedKeywords) {
                 res.addFlaggedKeyword(kw);
             }
