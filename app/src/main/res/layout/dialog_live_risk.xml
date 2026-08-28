@@ -175,16 +175,30 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Test Scam Simulation Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_simulate_scam_test"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
+        android:text="🧪 Test Scam Detection (AJIO 5 Cr / CVV)"
+        android:textColor="#EF4444"
+        app:cornerRadius="12dp"
+        app:strokeColor="#EF4444"
+        app:strokeWidth="1dp"
+        app:layout_constraintTop_toBottomOf="@id/card_recommendation" />
+
     <!-- Close Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_dismiss_risk_modal"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         android:backgroundTint="@color/colorPrimary"
         android:text="Got It • Continue Monitoring"
         android:textColor="@color/white"
         app:cornerRadius="12dp"
-        app:layout_constraintTop_toBottomOf="@id/card_recommendation" />
+        app:layout_constraintTop_toBottomOf="@id/btn_simulate_scam_test" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

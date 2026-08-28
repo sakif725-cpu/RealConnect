@@ -168,7 +168,26 @@ public class LiveCallGuard {
             layoutList.addView(tvKeywords, 0);
         }
 
-        textRecommendation.setText(result.getRecommendation());
+        view.findViewById(R.id.btn_simulate_scam_test).setOnClickListener(v -> {
+            String scamDialogue = "Hello, I'm Alex calling from AJIO. You have won a lottery of worth 5 crore. Please give us your bank account number, your credit card information and the CVV number written on the back side of your card.";
+            FraudIntelligenceEngine.FraudAssessment testAssessment = FraudIntelligenceEngine.evaluate(scamDialogue, false, false, false);
+            LiveRiskResult testResult = new LiveRiskResult(
+                    testAssessment.riskLevel,
+                    testAssessment.fraudScore,
+                    testAssessment.detailedSummary,
+                    testAssessment.actionRecommendation
+            );
+            testResult.setContextEvaluated(true);
+            testResult.setListeningDurationSeconds(30);
+            for (String ind : testAssessment.detectedIndicators) {
+                testResult.addIndicator(ind);
+            }
+            for (String kw : testAssessment.flaggedKeywords) {
+                testResult.addFlaggedKeyword(kw);
+            }
+            dialog.dismiss();
+            showLiveRiskSheet(activity, testResult);
+        });
 
         view.findViewById(R.id.btn_dismiss_risk_modal).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
