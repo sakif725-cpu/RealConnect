@@ -67,7 +67,7 @@ public class CallingActivity extends AppCompatActivity {
     private String targetPhone;
     private boolean isIncoming;
     private LiveRiskResult lastRiskResult;
-    private ContinuousCallAiScanner aiScanner;
+    private LiveCallAiProcessor aiProcessor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -253,21 +253,25 @@ public class CallingActivity extends AppCompatActivity {
     }
 
     private void startContinuousAiListening() {
-        if (aiScanner != null) {
-            aiScanner.stop();
+        if (aiProcessor != null) {
+            aiProcessor.stop();
         }
 
         boolean isSpamPreFlagged = getIntent().getBooleanExtra("IS_SPAM", false);
         String callerName = getIntent().getStringExtra("CONTACT_NAME");
 
-        aiScanner = new ContinuousCallAiScanner(this, targetPhone, callerName, isSpamPreFlagged, new ContinuousCallAiScanner.ScanListener() {
+        aiProcessor = new LiveCallAiProcessor(this, targetPhone, callerName, isSpamPreFlagged, new LiveCallAiProcessor.AiScanListener() {
             @Override
-            public void onListeningTick(int secondsElapsed, int targetSeconds, String statusText) {
+            public void onProgressTick(int secondsElapsed, String statusSummary) {
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
-                    if (lastRiskResult == null || !lastRiskResult.isContextEvaluated()) {
-                        textAiStatus.setText(statusText);
-                        textAiStatus.setTextColor(Color.WHITE);
+                    textAiStatus.setText(statusSummary);
+                    if (lastRiskResult != null && lastRiskResult.getLevel() == LiveRiskResult.Level.HIGH) {
+                        textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                    } else if (lastRiskResult != null && lastRiskResult.getLevel() == LiveRiskResult.Level.MEDIUM) {
+                        textAiStatus.setTextColor(Color.parseColor("#EAB308"));
+                    } else {
+                        textAiStatus.setTextColor(Color.parseColor("#22C55E"));
                     }
                 });
             }
@@ -279,31 +283,34 @@ public class CallingActivity extends AppCompatActivity {
                     if (isFinishing() || isDestroyed()) return;
 
                     if (result.getLevel() == LiveRiskResult.Level.HIGH) {
-                        textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%) • " + result.getListeningDurationSeconds() + "s CONTEXT");
+                        textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#EF4444"));
                         textSpamWarning.setVisibility(View.VISIBLE);
                         textSpamWarning.setText("⚠ " + result.getSummary().toUpperCase());
                     } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
-                        textAiStatus.setText("AI: MODERATE RISK (" + result.getRiskScore() + "%) • " + result.getListeningDurationSeconds() + "s CONTEXT");
+                        textAiStatus.setText("AI: MODERATE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#EAB308"));
+                        textSpamWarning.setVisibility(View.GONE);
                     } else {
-                        textAiStatus.setText("AI: LOW RISK • SAFE (" + result.getRiskScore() + "%)");
+                        textAiStatus.setText("AI: SAFE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#22C55E"));
+                        textSpamWarning.setVisibility(View.GONE);
                     }
                 });
             }
         });
 
-        aiScanner.start();
+        aiProcessor.start();
     }
 
     private void performVoiceAiAnalysis(boolean showModalOnFinish) {
-        if (lastRiskResult != null && lastRiskResult.isContextEvaluated()) {
+        LiveRiskResult resultToShow = (aiProcessor != null) ? aiProcessor.getCurrentRiskResult() : lastRiskResult;
+        if (resultToShow != null) {
             if (showModalOnFinish) {
-                LiveCallGuard.showLiveRiskSheet(CallingActivity.this, lastRiskResult);
+                LiveCallGuard.showLiveRiskSheet(CallingActivity.this, resultToShow);
             }
         } else {
-            Toast.makeText(this, "AI is currently capturing 30s of conversation to evaluate risk context accurately...", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "AI is monitoring live audio stream...", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -555,9 +562,9 @@ public class CallingActivity extends AppCompatActivity {
         super.onDestroy();
         running = false;
         stopRinging();
-        if (aiScanner != null) {
-            aiScanner.stop();
-            aiScanner = null;
+        if (aiProcessor != null) {
+            aiProcessor.stop();
+            aiProcessor = null;
         }
         CallRecordingHelper.getInstance().stopRecording();
         saveCallLogEntry();

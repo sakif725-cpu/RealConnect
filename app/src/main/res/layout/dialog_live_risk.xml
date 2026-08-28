@@ -23,31 +23,97 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="🛡️ AI Live Call Risk Inspector"
+        android:text="🛡️ AI Live Audio &amp; Risk Inspector"
         android:textColor="@color/white"
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/risk_grabber" />
 
-    <!-- Risk Level Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/card_risk_score"
-        android:layout_width="match_parent"
+    <!-- Section 1: Input Audio Captured -->
+    <TextView
+        android:id="@+id/text_input_audio_header"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        app:cardBackgroundColor="#22EF4444"
-        app:cardCornerRadius="16dp"
+        android:letterSpacing="0.05"
+        android:text="🎙️ LIVE AUDIO INPUT (ANALYZED)"
+        android:textColor="#38BDF8"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/text_risk_modal_title" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_input_audio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        app:cardBackgroundColor="#1E293B"
+        app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
-        app:strokeColor="#EF4444"
-        app:strokeWidth="1.5dp"
-        app:layout_constraintTop_toBottomOf="@id/text_risk_modal_title">
+        app:strokeColor="#334155"
+        app:strokeWidth="1dp"
+        app:layout_constraintTop_toBottomOf="@id/text_input_audio_header">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/text_input_audio_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="3dp"
+                android:text="Listening to live call audio..."
+                android:textColor="#F1F5F9"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/text_audio_sampling_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="• Processed 0s of real-time audio stream"
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Section 2: AI Risk Result -->
+    <TextView
+        android:id="@+id/text_ai_result_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:letterSpacing="0.05"
+        android:text="🧠 AI RISK ASSESSMENT RESULT"
+        android:textColor="#94A3B8"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/card_input_audio" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_risk_score"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        app:cardBackgroundColor="#22EF4444"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#EF4444"
+        app:strokeWidth="1.5dp"
+        app:layout_constraintTop_toBottomOf="@id/text_ai_result_header">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -71,8 +137,8 @@
 
                 <ImageView
                     android:id="@+id/icon_risk_status"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:src="@drawable/ic_block"
                     app:tint="#EF4444" />
             </LinearLayout>
@@ -84,67 +150,27 @@
                 android:layout_marginTop="6dp"
                 android:text="Potential financial fraud / robocall detected"
                 android:textColor="#E2E8F0"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Threat Indicators Container -->
-    <TextView
-        android:id="@+id/text_indicators_header"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:letterSpacing="0.05"
-        android:text="SECURITY SCAN INDICATORS"
-        android:textColor="#94A3B8"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/card_risk_score" />
-
+    <!-- Threat Indicators List -->
     <LinearLayout
         android:id="@+id/layout_indicators_list"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:orientation="vertical"
-        app:layout_constraintTop_toBottomOf="@id/text_indicators_header">
-
-        <TextView
-            android:id="@+id/text_indicator_1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
-            android:textColor="#CBD5E1"
-            android:textSize="13sp"
-            tools:text="• Telemarketing / Robocall Prefix" />
-
-        <TextView
-            android:id="@+id/text_indicator_2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
-            android:textColor="#CBD5E1"
-            android:textSize="13sp"
-            tools:text="• Voice Biomarkers: Synthetic Speech" />
-
-        <TextView
-            android:id="@+id/text_indicator_3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#CBD5E1"
-            android:textSize="13sp"
-            tools:text="• Caller Reputation: Flagged by AI" />
-    </LinearLayout>
+        app:layout_constraintTop_toBottomOf="@id/card_risk_score" />
 
     <!-- Recommendation Box -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_recommendation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:cardBackgroundColor="#1E293B"
-        app:cardCornerRadius="12dp"
+        android:layout_marginTop="12dp"
+        app:cardBackgroundColor="#0F172A"
+        app:cardCornerRadius="10dp"
         app:cardElevation="0dp"
         app:strokeColor="#334155"
         app:strokeWidth="1dp"
@@ -171,34 +197,20 @@
                 android:layout_marginTop="4dp"
                 android:text="Never share OTP, passwords, or bank card CVV numbers over the phone. Hang up if pressured."
                 android:textColor="#F8FAFC"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
-
-    <!-- Test Scam Simulation Button -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_simulate_scam_test"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="12dp"
-        android:text="🧪 Test Scam Detection (AJIO 5 Cr / CVV)"
-        android:textColor="#EF4444"
-        app:cornerRadius="12dp"
-        app:strokeColor="#EF4444"
-        app:strokeWidth="1dp"
-        app:layout_constraintTop_toBottomOf="@id/card_recommendation" />
 
     <!-- Close Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_dismiss_risk_modal"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
         android:backgroundTint="@color/colorPrimary"
         android:text="Got It • Continue Monitoring"
         android:textColor="@color/white"
         app:cornerRadius="12dp"
-        app:layout_constraintTop_toBottomOf="@id/btn_simulate_scam_test" />
+        app:layout_constraintTop_toBottomOf="@id/card_recommendation" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
