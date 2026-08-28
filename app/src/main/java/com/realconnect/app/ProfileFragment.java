@@ -108,17 +108,44 @@ public class ProfileFragment extends Fragment {
         });
 
         view.findViewById(R.id.btn_logout).setOnClickListener(v -> {
-            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle(R.string.logout)
-                    .setMessage("Are you sure you want to log out?")
-                    .setPositiveButton(R.string.logout, (dialog, which) -> {
-                        sharedPreferences.edit().clear().apply();
-                        Intent intent = new Intent(getActivity(), WelcomeActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                    })
-                    .setNegativeButton(R.string.action_cancel, null)
-                    .show();
+            android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+            confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+            confirmDialog.setContentView(confirmView);
+
+            android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+            android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+            android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+            com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+            com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+            View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+            textTitle.setText("Log Out");
+            textMsg.setText("Are you sure you want to log out of RealConnect?");
+            imgIcon.setImageResource(R.drawable.ic_block);
+            imgIcon.setColorFilter(android.graphics.Color.parseColor("#EF4444"));
+            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"));
+            btnAction.setText("Log Out");
+            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#EF4444"));
+
+            btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+            btnAction.setOnClickListener(cv -> {
+                confirmDialog.dismiss();
+                sharedPreferences.edit().clear().apply();
+                Intent intent = new Intent(getActivity(), WelcomeActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+            });
+
+            confirmDialog.show();
+            if (confirmDialog.getWindow() != null) {
+                confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                confirmDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
         });
         
         return view;
@@ -179,41 +206,54 @@ public class ProfileFragment extends Fragment {
     }
 
     private void showEditProfileDialog() {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_edit_profile, null);
-        TextInputEditText editName = dialogView.findViewById(R.id.edit_name);
-        TextInputEditText editPhone = dialogView.findViewById(R.id.edit_phone);
-        TextInputEditText editEmail = dialogView.findViewById(R.id.edit_email);
+        android.app.Dialog formDialog = new android.app.Dialog(requireContext());
+        formDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_profile_form, null);
+        formDialog.setContentView(dialogView);
+
+        com.google.android.material.textfield.TextInputEditText editName = dialogView.findViewById(R.id.edit_profile_form_name);
+        com.google.android.material.textfield.TextInputEditText editPhone = dialogView.findViewById(R.id.edit_profile_form_phone);
+        com.google.android.material.textfield.TextInputEditText editEmail = dialogView.findViewById(R.id.edit_profile_form_email);
+        View btnCancel = dialogView.findViewById(R.id.btn_profile_form_cancel);
+        com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_profile_form_submit);
 
         // Pre-fill with current values
         editName.setText(profileName.getText());
         editPhone.setText(profilePhone.getText());
         editEmail.setText(profileEmail.getText());
 
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.dialog_edit_profile_title)
-                .setView(dialogView)
-                .setPositiveButton(R.string.action_save, (dialog, which) -> {
-                    String name = editName.getText().toString().trim();
-                    String phone = editPhone.getText().toString().trim();
-                    String email = editEmail.getText().toString().trim();
+        btnCancel.setOnClickListener(v -> formDialog.dismiss());
+        btnSubmit.setOnClickListener(v -> {
+            String name = editName.getText() != null ? editName.getText().toString().trim() : "";
+            String phone = editPhone.getText() != null ? editPhone.getText().toString().trim() : "";
+            String email = editEmail.getText() != null ? editEmail.getText().toString().trim() : "";
 
-                    if (name.isEmpty() || phone.isEmpty() || email.isEmpty()) {
-                        Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
-                    } else {
-                        profileName.setText(name);
-                        profilePhone.setText(phone);
-                        profileEmail.setText(email);
+            if (name.isEmpty() || phone.isEmpty() || email.isEmpty()) {
+                Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
+            } else {
+                profileName.setText(name);
+                profilePhone.setText(phone);
+                profileEmail.setText(email);
 
-                        sharedPreferences.edit()
-                                .putString(KEY_NAME, name)
-                                .putString(KEY_PHONE, phone)
-                                .putString(KEY_EMAIL, email)
-                                .apply();
+                sharedPreferences.edit()
+                        .putString(KEY_NAME, name)
+                        .putString(KEY_PHONE, phone)
+                        .putString(KEY_EMAIL, email)
+                        .apply();
 
-                        Toast.makeText(getContext(), R.string.msg_profile_updated, Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
+                formDialog.dismiss();
+                Toast.makeText(getContext(), R.string.msg_profile_updated, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        formDialog.show();
+        if (formDialog.getWindow() != null) {
+            formDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            formDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            formDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 }

@@ -79,15 +79,43 @@ public class CallFragment extends Fragment {
         btnOpenDialpad.setOnClickListener(v -> showDialerView());
 
         btnClearLogs.setOnClickListener(v -> {
-            new MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Clear History")
-                    .setMessage("Are you sure you want to clear all call logs?")
-                    .setPositiveButton("Clear All", (dialog, which) -> {
-                        CallLogRepository.getInstance(requireContext()).clearCallLogs();
-                        loadCallLogs();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+            android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+            confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+            confirmDialog.setContentView(confirmView);
+
+            android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+            android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+            android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+            com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+            com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+            View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+            textTitle.setText("Clear History");
+            textMsg.setText("Are you sure you want to clear all call logs from your history?");
+            imgIcon.setImageResource(R.drawable.ic_delete);
+            imgIcon.setColorFilter(android.graphics.Color.parseColor("#EF4444"));
+            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"));
+            btnAction.setText("Clear All");
+            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#EF4444"));
+
+            btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+            btnAction.setOnClickListener(cv -> {
+                confirmDialog.dismiss();
+                CallLogRepository.getInstance(requireContext()).clearCallLogs();
+                loadCallLogs();
+                Toast.makeText(getContext(), "Call history cleared", Toast.LENGTH_SHORT).show();
+            });
+
+            confirmDialog.show();
+            if (confirmDialog.getWindow() != null) {
+                confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                confirmDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
         });
 
         callLogsListener = () -> {
@@ -245,48 +273,201 @@ public class CallFragment extends Fragment {
     }
 
     private void showCallLogOptions(CallLogAdapter.GroupedCallLog group) {
+        if (!isAdded() || getContext() == null) return;
         CallLogEntry entry = group.getLatestEntry();
-        String title = (entry.getContactName() != null && !entry.getContactName().isEmpty())
-                ? entry.getContactName() : entry.getPhoneNumber();
-        String[] options = {"Call " + title, "Delete from history"};
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Call Details")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        initiateCall(entry.getPhoneNumber(), entry.getContactName());
-                    } else if (which == 1) {
-                        for (int id : group.getEntryIds()) {
-                            CallLogRepository.getInstance(requireContext()).deleteCallLog(id);
-                        }
-                    }
-                })
-                .show();
+        String phoneNumber = entry.getPhoneNumber();
+        String contactName = (entry.getContactName() != null && !entry.getContactName().trim().isEmpty())
+                ? entry.getContactName() : phoneNumber;
+
+        android.app.Dialog floatingDialog = new android.app.Dialog(requireContext());
+        floatingDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_call_options, null);
+        floatingDialog.setContentView(dialogView);
+
+        View actionCall = dialogView.findViewById(R.id.action_call_log);
+        View actionCopy = dialogView.findViewById(R.id.action_copy_call_phone);
+        View actionBlock = dialogView.findViewById(R.id.action_block_call_phone);
+        View actionDelete = dialogView.findViewById(R.id.action_delete_call_log);
+
+        android.widget.TextView textBlockTitle = dialogView.findViewById(R.id.text_block_title);
+        android.widget.ImageView imgBlockIcon = dialogView.findViewById(R.id.img_block_icon);
+
+        // 1. Call
+        actionCall.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            initiateCall(phoneNumber, entry.getContactName());
+        });
+
+        // 2. Copy
+        actionCopy.setOnClickListener(v -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Phone Number", phoneNumber);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(getContext(), "Copied " + phoneNumber, Toast.LENGTH_SHORT).show();
+            }
+            floatingDialog.dismiss();
+        });
+
+        // 3. Block / Unblock
+        boolean isCurrentlyBlocked = BlockedNumbersManager.isBlocked(requireContext(), phoneNumber);
+        if (isCurrentlyBlocked) {
+            textBlockTitle.setText("Unblock");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#10B981"));
+            imgBlockIcon.setImageResource(R.drawable.ic_contacts);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#10B981"));
+        } else {
+            textBlockTitle.setText("Block");
+            textBlockTitle.setTextColor(android.graphics.Color.parseColor("#D97706"));
+            imgBlockIcon.setImageResource(R.drawable.ic_block);
+            imgBlockIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+        }
+
+        actionBlock.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            if (isCurrentlyBlocked) {
+                BlockedNumbersManager.unblockNumber(requireContext(), phoneNumber);
+                Toast.makeText(getContext(), "Unblocked " + contactName, Toast.LENGTH_SHORT).show();
+            } else {
+                android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+                confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+                View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+                confirmDialog.setContentView(confirmView);
+
+                android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+                android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+                android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+                com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+                com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+                View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+                textTitle.setText("Block Number");
+                textMsg.setText("You will no longer receive calls or messages from " + contactName + " (" + phoneNumber + ").");
+                imgIcon.setImageResource(R.drawable.ic_block);
+                imgIcon.setColorFilter(android.graphics.Color.parseColor("#D97706"));
+                iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"));
+                btnAction.setText("Block");
+                btnAction.setBackgroundColor(android.graphics.Color.parseColor("#D97706"));
+
+                btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+                btnAction.setOnClickListener(cv -> {
+                    confirmDialog.dismiss();
+                    BlockedNumbersManager.blockNumber(requireContext(), phoneNumber);
+                    Toast.makeText(getContext(), "Blocked " + contactName, Toast.LENGTH_SHORT).show();
+                });
+
+                confirmDialog.show();
+                if (confirmDialog.getWindow() != null) {
+                    confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                    confirmDialog.getWindow().setLayout(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+                    confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+                }
+            }
+        });
+
+        // 4. Delete
+        actionDelete.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+            android.app.Dialog confirmDialog = new android.app.Dialog(requireContext());
+            confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            View confirmView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_confirm_action, null);
+            confirmDialog.setContentView(confirmView);
+
+            android.widget.TextView textTitle = confirmView.findViewById(R.id.text_confirm_title);
+            android.widget.TextView textMsg = confirmView.findViewById(R.id.text_confirm_message);
+            android.widget.ImageView imgIcon = confirmView.findViewById(R.id.img_confirm_icon);
+            com.google.android.material.card.MaterialCardView iconBg = confirmView.findViewById(R.id.card_confirm_icon_bg);
+            com.google.android.material.button.MaterialButton btnAction = confirmView.findViewById(R.id.btn_confirm_action);
+            View btnCancel = confirmView.findViewById(R.id.btn_confirm_cancel);
+
+            textTitle.setText("Delete Call Log");
+            textMsg.setText("Are you sure you want to delete this call log from your history?");
+            imgIcon.setImageResource(R.drawable.ic_delete);
+            imgIcon.setColorFilter(android.graphics.Color.parseColor("#EF4444"));
+            iconBg.setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"));
+            btnAction.setText("Delete");
+            btnAction.setBackgroundColor(android.graphics.Color.parseColor("#EF4444"));
+
+            btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
+            btnAction.setOnClickListener(cv -> {
+                confirmDialog.dismiss();
+                for (int id : group.getEntryIds()) {
+                    CallLogRepository.getInstance(requireContext()).deleteCallLog(id);
+                }
+                loadCallLogs();
+                Toast.makeText(getContext(), "Call log deleted", Toast.LENGTH_SHORT).show();
+            });
+
+            confirmDialog.show();
+            if (confirmDialog.getWindow() != null) {
+                confirmDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                confirmDialog.getWindow().setLayout(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                confirmDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+            }
+        });
+
+        floatingDialog.show();
+        if (floatingDialog.getWindow() != null) {
+            floatingDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            floatingDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            floatingDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void showAddContactDialog(String number) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_contact, null);
-        EditText editName = dialogView.findViewById(R.id.edit_name);
-        EditText editPhone = dialogView.findViewById(R.id.edit_phone);
+        android.app.Dialog formDialog = new android.app.Dialog(requireContext());
+        formDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_form, null);
+        formDialog.setContentView(dialogView);
 
-        editPhone.setText(number);
+        android.widget.TextView textTitle = dialogView.findViewById(R.id.text_form_title);
+        android.widget.TextView textSubtitle = dialogView.findViewById(R.id.text_form_subtitle);
+        EditText editName = dialogView.findViewById(R.id.edit_form_name);
+        EditText editPhone = dialogView.findViewById(R.id.edit_form_phone);
+        View btnCancel = dialogView.findViewById(R.id.btn_form_cancel);
+        com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_form_submit);
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.dialog_add_contact_title)
-                .setView(dialogView)
-                .setPositiveButton(R.string.action_add, (dialog, which) -> {
-                    String name = editName.getText().toString().trim();
-                    String phone = editPhone.getText().toString().trim();
+        textTitle.setText("New Contact");
+        textSubtitle.setText("Save number to your contacts");
+        btnSubmit.setText("Save");
 
-                    if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
-                        ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
-                        Toast.makeText(getContext(), "Contact saved", Toast.LENGTH_SHORT).show();
-                        updateDialerUi();
-                    } else {
-                        Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton(R.string.action_cancel, null)
-                .show();
+        if (number != null) {
+            editPhone.setText(number);
+        }
+
+        btnCancel.setOnClickListener(v -> formDialog.dismiss());
+        btnSubmit.setOnClickListener(v -> {
+            String name = editName.getText().toString().trim();
+            String phone = editPhone.getText().toString().trim();
+
+            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
+                ContactRepository.getInstance(requireContext()).addContact(new Contact(name, phone));
+                formDialog.dismiss();
+                Toast.makeText(getContext(), "Contact saved: " + name, Toast.LENGTH_SHORT).show();
+                updateDialerUi();
+            } else {
+                Toast.makeText(getContext(), R.string.error_empty_fields, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        formDialog.show();
+        if (formDialog.getWindow() != null) {
+            formDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            formDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            formDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     @Override
