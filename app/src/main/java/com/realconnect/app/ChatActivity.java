@@ -218,46 +218,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void loadHeaderAvatar(ImageView imgAvatar, String phone, String name) {
-        if (imgAvatar == null) return;
-
-        String displayName = (name != null && !name.trim().isEmpty()) ? name : (phone != null ? phone : "?");
-        Bitmap initialAvatar = ImageUtils.createAvatarWithInitial(displayName, 120, Color.parseColor("#E2E8F0"), Color.parseColor("#0F172A"));
-        imgAvatar.setPadding(0, 0, 0, 0);
-        imgAvatar.setImageTintList(null);
-        imgAvatar.setColorFilter(null);
-        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        imgAvatar.setImageBitmap(initialAvatar);
-
-        String cleanTarget = ChatRepository.cleanPhone(phone);
-        if (!cleanTarget.isEmpty()) {
-            FirebaseDatabase.getInstance().getReference("users")
-                    .child(cleanTarget)
-                    .child("profileImageBase64")
-                    .addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(@NonNull DataSnapshot snapshot) {
-                            try {
-                                if (isFinishing() || isDestroyed()) return;
-                                String base64 = snapshot.getValue(String.class);
-                                if (base64 != null && !base64.trim().isEmpty()) {
-                                    Bitmap photo = ImageUtils.base64ToBitmap(base64);
-                                    if (photo != null) {
-                                        runOnUiThread(() -> {
-                                            imgAvatar.setPadding(0, 0, 0, 0);
-                                            imgAvatar.setImageTintList(null);
-                                            imgAvatar.setColorFilter(null);
-                                            imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                                            imgAvatar.setImageBitmap(photo);
-                                        });
-                                    }
-                                }
-                            } catch (Exception ignored) {}
-                        }
-
-                        @Override
-                        public void onCancelled(@NonNull DatabaseError error) {}
-                    });
-        }
+        AvatarHelper.loadAvatar(this, imgAvatar, phone, name);
     }
 
     private void loadLocalHistory() {

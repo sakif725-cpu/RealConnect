@@ -59,6 +59,7 @@ public class ProfileFragment extends Fragment {
                             Toast.makeText(getContext(), R.string.msg_profile_photo_updated, Toast.LENGTH_SHORT).show();
 
                             String selfPhone = sharedPreferences.getString(KEY_PHONE, "");
+                            AvatarHelper.clearCacheForPhone(selfPhone);
                             String cleanPhone = ChatRepository.cleanPhone(selfPhone);
                             if (!cleanPhone.isEmpty()) {
                                 new Thread(() -> {

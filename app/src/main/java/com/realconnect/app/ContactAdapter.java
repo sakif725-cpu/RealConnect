@@ -43,6 +43,8 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
         Contact contact = contacts.get(position);
         holder.nameText.setText(contact.getName());
         holder.phoneText.setText(contact.getPhoneNumber());
+
+        AvatarHelper.loadAvatar(holder.itemView.getContext(), holder.avatarImage, contact.getPhoneNumber(), contact.getName());
         
         holder.itemView.setOnClickListener(v -> listener.onContactSelected(contact));
         holder.callAction.setOnClickListener(v -> listener.onCallAction(contact));

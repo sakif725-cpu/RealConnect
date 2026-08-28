@@ -68,6 +68,8 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
         holder.textName.setText(displayName != null && !displayName.isEmpty() ? displayName : "Unknown");
         holder.textLastMessage.setText(message.getText());
 
+        AvatarHelper.loadAvatar(context, holder.imgAvatar, targetPhone, displayName);
+
         long diffDays = (System.currentTimeMillis() - message.getTimestamp()) / (1000 * 60 * 60 * 24);
         if (diffDays == 0) {
             holder.textTime.setText(timeFormat.format(new Date(message.getTimestamp())));
@@ -112,6 +114,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
 
     static class ChatPreviewViewHolder extends RecyclerView.ViewHolder {
         TextView textName, textLastMessage, textTime, badgeUnreadCount;
+        android.widget.ImageView imgAvatar;
 
         ChatPreviewViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -119,6 +122,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
             textLastMessage = itemView.findViewById(R.id.text_chat_last_message);
             textTime = itemView.findViewById(R.id.text_chat_time);
             badgeUnreadCount = itemView.findViewById(R.id.badge_unread_count);
+            imgAvatar = itemView.findViewById(R.id.img_chat_avatar);
         }
     }
 }

@@ -106,6 +106,8 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
             holder.textName.setText(displayName);
         }
 
+        AvatarHelper.loadAvatar(holder.itemView.getContext(), holder.imgAvatar, entry.getPhoneNumber(), entry.getContactName());
+
         // Format Date / Time
         String timeStr;
         if (DateUtils.isToday(entry.getTimestamp())) {
@@ -172,7 +174,7 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
 
     static class CallLogViewHolder extends RecyclerView.ViewHolder {
         TextView textName, textTypeTime;
-        ImageView imgDirection, btnCall;
+        ImageView imgDirection, btnCall, imgAvatar;
 
         CallLogViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -180,6 +182,7 @@ public class CallLogAdapter extends RecyclerView.Adapter<CallLogAdapter.CallLogV
             textTypeTime = itemView.findViewById(R.id.text_log_type_time);
             imgDirection = itemView.findViewById(R.id.img_log_direction);
             btnCall = itemView.findViewById(R.id.image_log_call_action);
+            imgAvatar = itemView.findViewById(R.id.img_log_avatar);
         }
     }
 }
