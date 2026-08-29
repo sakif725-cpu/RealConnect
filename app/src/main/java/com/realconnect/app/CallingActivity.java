@@ -504,30 +504,38 @@ public class CallingActivity extends AppCompatActivity {
         localAudioTrack.setEnabled(true);
 
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
-        // Global Google STUN Servers
+        // Global High-Availability STUN Servers
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
-        iceServers.add(PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer());
-        iceServers.add(PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer());
 
-        // Free OpenRelay TURN Servers for 100% Guaranteed 4G/5G Cellular & Symmetric NAT Traversal
+        // Multi-Port & Multi-Protocol OpenRelay TURN Relays (UDP + TCP + TLS)
         iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-                .setUsername("openrelay")
-                .setPassword("openrelay")
-                .createIceServer());
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-                .setUsername("openrelay")
-                .setPassword("openrelay")
-                .createIceServer());
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
-                .setUsername("openrelay")
-                .setPassword("openrelay")
-                .createIceServer());
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turns:openrelay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+
+        iceServers.add(PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
 
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
         rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
+        rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
+        rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
+        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
 
         peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override public void onSignalingChange(PeerConnection.SignalingState s) {}
