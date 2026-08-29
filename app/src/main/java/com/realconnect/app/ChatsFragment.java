@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -49,7 +50,7 @@ public class ChatsFragment extends Fragment {
         recyclerView.setAdapter(adapter);
 
         FloatingActionButton btnNewChat = view.findViewById(R.id.btn_new_chat);
-        btnNewChat.setOnClickListener(v -> showNewChatOptions());
+        btnNewChat.setOnClickListener(v -> showNewChatDialog());
 
         messageListener = message -> {
             if (isAdded() && getActivity() != null) {
@@ -87,18 +88,118 @@ public class ChatsFragment extends Fragment {
         }
     }
 
-    private void showNewChatOptions() {
-        String[] options = {"Select from Contacts", "Enter Phone Number"};
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Start New Chat")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        showContactPickerDialog();
-                    } else {
-                        showDirectNumberDialog();
+    private void showNewChatDialog() {
+        if (!isAdded() || getContext() == null) return;
+
+        android.app.Dialog dialog = new android.app.Dialog(requireContext());
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_new_chat, null);
+        dialog.setContentView(dialogView);
+
+        // 1. Close button
+        View btnClose = dialogView.findViewById(R.id.btn_floating_close);
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        // 2. Direct Number Action
+        View cardDirectNumber = dialogView.findViewById(R.id.action_direct_phone);
+        if (cardDirectNumber != null) {
+            cardDirectNumber.setOnClickListener(v -> {
+                dialog.dismiss();
+                showDirectNumberDialog();
+            });
+        }
+
+        // 3. New Contact Action
+        View cardNewContact = dialogView.findViewById(R.id.action_new_contact);
+        if (cardNewContact != null) {
+            cardNewContact.setOnClickListener(v -> {
+                dialog.dismiss();
+                showAddNewContactDialog();
+            });
+        }
+
+        // 4. Contacts Recycler & Adapter
+        RecyclerView recyclerContacts = dialogView.findViewById(R.id.recycler_floating_contacts);
+        recyclerContacts.setLayoutManager(new LinearLayoutManager(getContext()));
+        List<Contact> contacts = ContactRepository.getInstance(requireContext()).getContacts();
+
+        TextView textContactsCount = dialogView.findViewById(R.id.text_floating_contacts_count);
+        if (textContactsCount != null) {
+            textContactsCount.setText("Contacts (" + contacts.size() + ")");
+        }
+
+        View layoutEmpty = dialogView.findViewById(R.id.layout_floating_empty);
+        if (layoutEmpty != null) {
+            layoutEmpty.setVisibility(contacts.isEmpty() ? View.VISIBLE : View.GONE);
+        }
+
+        NewChatContactAdapter contactAdapter = new NewChatContactAdapter(contacts, contact -> {
+            dialog.dismiss();
+            openChatActivity(contact.getName(), contact.getPhoneNumber());
+        });
+        recyclerContacts.setAdapter(contactAdapter);
+
+        // 5. Instant Chat on Custom Query
+        View cardInstantChat = dialogView.findViewById(R.id.card_floating_instant_chat);
+        TextView textInstantQuery = dialogView.findViewById(R.id.text_floating_instant_query);
+
+        // 6. Search Bar
+        EditText editSearch = dialogView.findViewById(R.id.edit_floating_search);
+        View btnClearSearch = dialogView.findViewById(R.id.btn_floating_search_clear);
+
+        contactAdapter.setOnFilterResultListener((count, query) -> {
+            if (textContactsCount != null) {
+                textContactsCount.setText("Contacts (" + count + ")");
+            }
+            if (layoutEmpty != null) {
+                layoutEmpty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+            }
+
+            if (!query.isEmpty() && cardInstantChat != null && textInstantQuery != null) {
+                cardInstantChat.setVisibility(View.VISIBLE);
+                textInstantQuery.setText("Chat with \"" + query + "\"");
+                cardInstantChat.setOnClickListener(v -> {
+                    dialog.dismiss();
+                    openChatActivity(query, query);
+                });
+            } else if (cardInstantChat != null) {
+                cardInstantChat.setVisibility(View.GONE);
+            }
+        });
+
+        if (editSearch != null) {
+            editSearch.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    contactAdapter.getFilter().filter(s);
+                    if (btnClearSearch != null) {
+                        btnClearSearch.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
                     }
-                })
-                .show();
+                }
+
+                @Override
+                public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+
+        if (btnClearSearch != null && editSearch != null) {
+            btnClearSearch.setOnClickListener(v -> editSearch.setText(""));
+        }
+
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            dialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            dialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void showDirectNumberDialog() {
@@ -114,9 +215,9 @@ public class ChatsFragment extends Fragment {
         View btnCancel = dialogView.findViewById(R.id.btn_form_cancel);
         com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_form_submit);
 
-        textTitle.setText("New Conversation");
-        textSubtitle.setText("Enter details to start chatting");
-        btnSubmit.setText("Chat");
+        textTitle.setText("Direct Conversation");
+        textSubtitle.setText("Enter phone number to start chatting");
+        btnSubmit.setText("Start Chat");
 
         btnCancel.setOnClickListener(v -> formDialog.dismiss());
         btnSubmit.setOnClickListener(v -> {
@@ -126,7 +227,7 @@ public class ChatsFragment extends Fragment {
                 formDialog.dismiss();
                 openChatActivity(name, phone);
             } else {
-                Toast.makeText(getContext(), "Enter a phone number", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Please enter a phone number", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -141,27 +242,46 @@ public class ChatsFragment extends Fragment {
         }
     }
 
-    private void showContactPickerDialog() {
-        List<Contact> contacts = ContactRepository.getInstance(requireContext()).getContacts();
-        if (contacts.isEmpty()) {
-            Toast.makeText(getContext(), "No contacts found. Use 'Enter Phone Number' instead.", Toast.LENGTH_SHORT).show();
-            showDirectNumberDialog();
-            return;
-        }
+    private void showAddNewContactDialog() {
+        android.app.Dialog formDialog = new android.app.Dialog(requireContext());
+        formDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_contact_form, null);
+        formDialog.setContentView(dialogView);
 
-        String[] contactItems = new String[contacts.size()];
-        for (int i = 0; i < contacts.size(); i++) {
-            contactItems[i] = contacts.get(i).getName() + " (" + contacts.get(i).getPhoneNumber() + ")";
-        }
+        android.widget.TextView textTitle = dialogView.findViewById(R.id.text_form_title);
+        android.widget.TextView textSubtitle = dialogView.findViewById(R.id.text_form_subtitle);
+        EditText editName = dialogView.findViewById(R.id.edit_form_name);
+        EditText editPhone = dialogView.findViewById(R.id.edit_form_phone);
+        View btnCancel = dialogView.findViewById(R.id.btn_form_cancel);
+        com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_form_submit);
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Select Contact to Chat")
-                .setItems(contactItems, (dialog, which) -> {
-                    Contact selected = contacts.get(which);
-                    openChatActivity(selected.getName(), selected.getPhoneNumber());
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        textTitle.setText("New Contact");
+        textSubtitle.setText("Save contact and start conversation");
+        btnSubmit.setText("Save & Chat");
+
+        btnCancel.setOnClickListener(v -> formDialog.dismiss());
+        btnSubmit.setOnClickListener(v -> {
+            String name = editName.getText().toString().trim();
+            String phone = editPhone.getText().toString().trim();
+            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(phone)) {
+                Contact newContact = new Contact(name, phone);
+                ContactRepository.getInstance(requireContext()).addContact(newContact);
+                formDialog.dismiss();
+                openChatActivity(name, phone);
+            } else {
+                Toast.makeText(getContext(), "Please fill in both name and phone number", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        formDialog.show();
+        if (formDialog.getWindow() != null) {
+            formDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            formDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            formDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
     }
 
     private void openChatActivity(String name, String phone) {

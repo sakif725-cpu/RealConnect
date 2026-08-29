@@ -89,15 +89,7 @@ public class AiIntentAnalyzer {
                 "}";
 
         JsonObject jsonBody = new JsonObject();
-        JsonArray contents = new JsonArray();
-        JsonObject contentObj = new JsonObject();
-        JsonArray parts = new JsonArray();
-        JsonObject partObj = new JsonObject();
-        partObj.addProperty("text", prompt);
-        parts.add(partObj);
-        contentObj.add("parts", parts);
-        contents.add(contentObj);
-        jsonBody.add("contents", contents);
+        jsonBody.addProperty("text", transcript);
 
         // Send to AI endpoint
         RequestBody body = RequestBody.create(
@@ -106,7 +98,7 @@ public class AiIntentAnalyzer {
         );
 
         Request request = new Request.Builder()
-                .url("https://ai-detection-sys.onrender.com/voice-analysis")
+                .url(AiService.BASE_URL + "voice-analysis")
                 .post(body)
                 .build();
 

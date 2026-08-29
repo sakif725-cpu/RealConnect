@@ -16,6 +16,10 @@ import android.view.animation.DecelerateInterpolator;
 
 public class WhipOverlayView extends View {
 
+    public interface ImpactListener {
+        void onImpact();
+    }
+
     private float progress = 0f;
     private final PointF targetPoint = new PointF();
     private final PointF startPoint = new PointF();
@@ -24,6 +28,8 @@ public class WhipOverlayView extends View {
     private Paint tipPaint;
     private Paint sparkPaint;
     private final Path ropePath = new Path();
+    private ImpactListener impactListener;
+    private boolean hasTriggeredImpact = false;
 
     public WhipOverlayView(Context context) {
         super(context);
@@ -57,10 +63,15 @@ public class WhipOverlayView extends View {
     }
 
     public static void show(Activity activity, View targetView) {
+        show(activity, targetView, null);
+    }
+
+    public static void show(Activity activity, View targetView, ImpactListener impactListener) {
         if (activity == null || targetView == null) return;
 
         ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
         WhipOverlayView overlay = new WhipOverlayView(activity);
+        overlay.impactListener = impactListener;
 
         ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -79,6 +90,7 @@ public class WhipOverlayView extends View {
 
     private void startAnimation(float tx, float ty, ViewGroup parent) {
         this.targetPoint.set(tx, ty);
+        this.hasTriggeredImpact = false;
 
         post(() -> {
             int w = getWidth();
@@ -89,10 +101,19 @@ public class WhipOverlayView extends View {
             this.startPoint.set(w * 0.50f, h * 0.52f);
 
             ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(680); // Slower, smooth & visible motion (680ms)
+            animator.setDuration(540); // Snappy visible motion (540ms total, impact at ~270ms)
             animator.setInterpolator(new DecelerateInterpolator(1.2f));
             animator.addUpdateListener(animation -> {
                 progress = (float) animation.getAnimatedValue();
+
+                // Trigger physical impact at exact moment whip tip reaches avatar
+                if (progress >= 0.50f && !hasTriggeredImpact) {
+                    hasTriggeredImpact = true;
+                    if (impactListener != null) {
+                        impactListener.onImpact();
+                    }
+                }
+
                 invalidate();
             });
             animator.addListener(new AnimatorListenerAdapter() {
@@ -152,9 +173,9 @@ public class WhipOverlayView extends View {
         float currentTipX;
         float currentTipY;
 
-        if (progress < 0.55f) {
+        if (progress < 0.50f) {
             // Phase 1: The whip uncurls from middle and propels upward in an elastic loop
-            float pNorm = progress / 0.55f;
+            float pNorm = progress / 0.50f;
             currentTipX = sx + (tx - sx) * pNorm;
             currentTipY = sy + (ty - sy) * pNorm;
 
@@ -175,7 +196,7 @@ public class WhipOverlayView extends View {
 
         } else {
             // Phase 2: Whip has struck target avatar, vibrating wave decay
-            float pAfter = (progress - 0.55f) / 0.45f;
+            float pAfter = (progress - 0.50f) / 0.50f;
             currentTipX = tx;
             currentTipY = ty;
 
@@ -196,8 +217,8 @@ public class WhipOverlayView extends View {
             canvas.drawLine(tx, ty, tx + 18 * density * (1f - pAfter), ty + 14 * density * (1f - pAfter), tipPaint);
 
             // 3. Impact Flash & Sparks on Avatar
-            if (progress >= 0.52f && progress <= 0.88f) {
-                float sparkProg = (progress - 0.52f) / 0.36f;
+            if (progress >= 0.50f && progress <= 0.88f) {
+                float sparkProg = (progress - 0.50f) / 0.38f;
                 float sparkRadius = sparkProg * 50 * density;
                 float sparkAlpha = (1f - sparkProg);
 

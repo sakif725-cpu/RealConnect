@@ -148,8 +148,7 @@ public class CallingActivity extends AppCompatActivity {
             btnAcceptCall.setVisibility(View.GONE);
             controlsContainer.setVisibility(View.VISIBLE);
             textCallTimer.setText("Calling...");
-            textAiStatus.setText("AI GUARD: ACTIVE");
-            startContinuousAiListening();
+            textAiStatus.setText("AI GUARD: STANDBY");
             
             if (checkPermissions()) {
                 startCallFlow();
@@ -318,12 +317,22 @@ public class CallingActivity extends AppCompatActivity {
 
     private void performVoiceAiAnalysis(boolean showModalOnFinish) {
         LiveRiskResult resultToShow = (aiProcessor != null) ? aiProcessor.getCurrentRiskResult() : lastRiskResult;
-        if (resultToShow != null) {
-            if (showModalOnFinish) {
-                LiveCallGuard.showLiveRiskSheet(CallingActivity.this, resultToShow);
-            }
-        } else {
-            Toast.makeText(this, "AI is monitoring live audio stream...", Toast.LENGTH_SHORT).show();
+        if (resultToShow == null) {
+            boolean isSpamPreFlagged = getIntent().getBooleanExtra("IS_SPAM", false);
+            resultToShow = new LiveRiskResult(
+                    isSpamPreFlagged ? LiveRiskResult.Level.HIGH : LiveRiskResult.Level.LOW,
+                    isSpamPreFlagged ? 85 : 5,
+                    isSpamPreFlagged ? "Flagged Spam Number" : "AI Guard is actively monitoring live conversation.",
+                    "Safe call. Speak naturally."
+            );
+            resultToShow.setContextEvaluated(true);
+            resultToShow.setSpam(isSpamPreFlagged);
+            resultToShow.setCallerIntent("Live Call AI Guard Active");
+            resultToShow.addIndicator("• Real-time speech & acoustic monitoring active");
+            lastRiskResult = resultToShow;
+        }
+        if (showModalOnFinish) {
+            LiveCallGuard.showLiveRiskSheet(CallingActivity.this, resultToShow);
         }
     }
 
@@ -436,7 +445,6 @@ public class CallingActivity extends AppCompatActivity {
         stopRinging();
         btnAcceptCall.setVisibility(View.GONE);
         textCallTimer.setText("Connecting...");
-        startContinuousAiListening();
         if (checkPermissions()) {
             startCallFlow();
         } else {
@@ -460,9 +468,21 @@ public class CallingActivity extends AppCompatActivity {
                         .createInitializationOptions();
         PeerConnectionFactory.initialize(initializationOptions);
 
-        org.webrtc.audio.AudioDeviceModule adm = org.webrtc.audio.JavaAudioDeviceModule.builder(this)
+        org.webrtc.audio.JavaAudioDeviceModule adm = org.webrtc.audio.JavaAudioDeviceModule.builder(this)
                 .setUseHardwareAcousticEchoCanceler(true)
                 .setUseHardwareNoiseSuppressor(true)
+                .setSamplesReadyCallback(new org.webrtc.audio.JavaAudioDeviceModule.SamplesReadyCallback() {
+                    @Override
+                    public void onWebRtcAudioRecordSamplesReady(org.webrtc.audio.JavaAudioDeviceModule.AudioSamples audioSamples) {
+                        if (aiProcessor != null && isConnected) {
+                            aiProcessor.onAudioSamplesCaptured(
+                                    audioSamples.getData(),
+                                    audioSamples.getSampleRate(),
+                                    audioSamples.getChannelCount()
+                            );
+                        }
+                    }
+                })
                 .createAudioDeviceModule();
 
         factory = PeerConnectionFactory.builder()

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import java.io.ByteArrayOutputStream;
 
 public class LiveCallAiProcessor {
 
@@ -25,10 +26,15 @@ public class LiveCallAiProcessor {
     private int secondsElapsed = 0;
 
     private Runnable tickerRunnable;
-    private byte[] latestAudioBytes;
     private boolean isSyntheticVoiceDetected = false;
     private boolean isSpamFromRender = false;
     private LiveRiskResult currentRiskResult;
+
+    private final ByteArrayOutputStream pcmBuffer = new ByteArrayOutputStream();
+    private long lastAudioSendTime = 0;
+    private boolean isSendingAudio = false;
+    private String accumulatedTranscript = "";
+    private AiApiService.VoiceAnalysisResponse latestServerAnalysis;
 
     public LiveCallAiProcessor(Context context, String phone, String name, boolean isPreFlaggedSpam, AiScanListener listener) {
         this.context = context;
@@ -44,10 +50,10 @@ public class LiveCallAiProcessor {
         isRunning = true;
         secondsElapsed = 0;
         isSyntheticVoiceDetected = false;
+        accumulatedTranscript = "";
 
-        Log.d(TAG, "Connecting to Render AI backend (https://ai-detection-sys.onrender.com)...");
+        Log.d(TAG, "Connecting to AI backend: " + AiService.BASE_URL);
         queryRenderSpamCheck();
-        captureAndSendAudioToRender();
 
         startTicker();
     }
@@ -58,10 +64,94 @@ public class LiveCallAiProcessor {
             handler.removeCallbacks(tickerRunnable);
             tickerRunnable = null;
         }
+        synchronized (pcmBuffer) {
+            pcmBuffer.reset();
+        }
+    }
+
+    public void onAudioSamplesCaptured(byte[] data, int sampleRate, int channels) {
+        if (!isRunning || data == null || data.length == 0) return;
+
+        synchronized (pcmBuffer) {
+            pcmBuffer.write(data, 0, data.length);
+
+            // Once we have 2.5 seconds of audio, dispatch to server
+            int bytesPerSecond = sampleRate * channels * 2;
+            int thresholdBytes = (int) (bytesPerSecond * 2.5);
+
+            long now = System.currentTimeMillis();
+            if (pcmBuffer.size() >= thresholdBytes && (now - lastAudioSendTime >= 2500) && !isSendingAudio) {
+                byte[] rawPcm = pcmBuffer.toByteArray();
+                pcmBuffer.reset();
+                lastAudioSendTime = now;
+                dispatchAudioSnippetToServer(rawPcm, sampleRate, channels);
+            }
+        }
+    }
+
+    private void dispatchAudioSnippetToServer(byte[] pcmData, int sampleRate, int channels) {
+        isSendingAudio = true;
+        byte[] wavBytes = addWavHeader(pcmData, sampleRate, channels);
+
+        AiService.analyzeLiveVoice(wavBytes, response -> {
+            isSendingAudio = false;
+            if (response != null) {
+                latestServerAnalysis = response;
+                if (response.transcript != null && !response.transcript.trim().isEmpty()) {
+                    accumulatedTranscript = response.transcript.trim();
+                    Log.d(TAG, "Server transcribed voice: \"" + accumulatedTranscript + "\"");
+                }
+            }
+            evaluateLiveContext();
+        });
+    }
+
+    private byte[] addWavHeader(byte[] pcmData, int sampleRate, int channels) {
+        int totalAudioLen = pcmData.length;
+        int totalDataLen = totalAudioLen + 36;
+        int byteRate = sampleRate * channels * 2;
+
+        byte[] header = new byte[44];
+        header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+        header[4] = (byte) (totalDataLen & 0xff);
+        header[5] = (byte) ((totalDataLen >> 8) & 0xff);
+        header[6] = (byte) ((totalDataLen >> 16) & 0xff);
+        header[7] = (byte) ((totalDataLen >> 24) & 0xff);
+        header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+        header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+        header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0; // Subchunk1Size = 16
+        header[20] = 1; header[21] = 0; // AudioFormat = 1 (PCM)
+        header[22] = (byte) channels; header[23] = 0;
+        header[24] = (byte) (sampleRate & 0xff);
+        header[25] = (byte) ((sampleRate >> 8) & 0xff);
+        header[26] = (byte) ((sampleRate >> 16) & 0xff);
+        header[27] = (byte) ((sampleRate >> 24) & 0xff);
+        header[28] = (byte) (byteRate & 0xff);
+        header[29] = (byte) ((byteRate >> 8) & 0xff);
+        header[30] = (byte) ((byteRate >> 16) & 0xff);
+        header[31] = (byte) ((byteRate >> 24) & 0xff);
+        header[32] = (byte) (channels * 2); header[33] = 0; // BlockAlign
+        header[34] = 16; header[35] = 0; // BitsPerSample = 16
+        header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+        header[40] = (byte) (totalAudioLen & 0xff);
+        header[41] = (byte) ((totalAudioLen >> 8) & 0xff);
+        header[42] = (byte) ((totalAudioLen >> 16) & 0xff);
+        header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
+
+        byte[] wav = new byte[header.length + pcmData.length];
+        System.arraycopy(header, 0, wav, 0, header.length);
+        System.arraycopy(pcmData, 0, wav, header.length, pcmData.length);
+        return wav;
     }
 
     public String getCapturedTranscript() {
-        return "🎙️ Live Audio Stream Active (Connected to AI Backend https://ai-detection-sys.onrender.com)";
+        if (accumulatedTranscript != null && !accumulatedTranscript.trim().isEmpty()) {
+            return accumulatedTranscript.trim();
+        }
+        if (latestServerAnalysis != null && latestServerAnalysis.transcript != null && !latestServerAnalysis.transcript.trim().isEmpty()) {
+            return latestServerAnalysis.transcript.trim();
+        }
+        return "🎙️ WebRTC In-Call Live Audio Monitoring Active";
     }
 
     public LiveRiskResult getCurrentRiskResult() {
@@ -91,22 +181,16 @@ public class LiveCallAiProcessor {
 
                 secondsElapsed++;
 
-                // Trigger Render voice-analysis audio snippet at 3s, 10s, 20s, 30s...
-                if (secondsElapsed == 3 || secondsElapsed % 10 == 0) {
-                    captureAndSendAudioToRender();
-                }
-
-                // Periodic AI intent re-evaluation
-                evaluateLiveContext();
-
                 if (listener != null) {
                     String statusText;
                     if (currentRiskResult != null && currentRiskResult.getLevel() == LiveRiskResult.Level.HIGH) {
                         statusText = "AI: HIGH RISK (" + currentRiskResult.getRiskScore() + "%)";
                     } else if (currentRiskResult != null && currentRiskResult.getLevel() == LiveRiskResult.Level.MEDIUM) {
                         statusText = "AI: MODERATE (" + currentRiskResult.getRiskScore() + "%) • " + secondsElapsed + "s";
-                    } else {
+                    } else if (secondsElapsed < 5) {
                         statusText = "AI: MONITORING • " + secondsElapsed + "s";
+                    } else {
+                        statusText = "AI: SAFE (" + (currentRiskResult != null ? currentRiskResult.getRiskScore() : 5) + "%) • " + secondsElapsed + "s";
                     }
                     listener.onProgressTick(secondsElapsed, statusText);
                 }
@@ -117,67 +201,48 @@ public class LiveCallAiProcessor {
         handler.postDelayed(tickerRunnable, 1000);
     }
 
-    private void captureAndSendAudioToRender() {
-        Log.d(TAG, "Capturing 2s audio snippet to send to Render POST /voice-analysis...");
-        AudioRecorderHelper.captureAudioSnippet(context, 2, new AudioRecorderHelper.AudioCaptureCallback() {
-            @Override
-            public void onAudioCaptured(byte[] audioBytes) {
-                latestAudioBytes = audioBytes;
-                analyzeAcoustics(audioBytes);
-
-                Log.d(TAG, "Sending " + audioBytes.length + " bytes to Render POST /voice-analysis...");
-                AiService.detectBot(audioBytes, isBot -> {
-                    Log.d(TAG, "Render POST /voice-analysis response: isBot=" + isBot);
-                    if (isBot) {
-                        isSyntheticVoiceDetected = true;
-                    }
-                    evaluateLiveContext();
-                });
-            }
-
-            @Override
-            public void onError(String errorMessage) {
-                Log.w(TAG, "Audio capture skipped: " + errorMessage);
-                byte[] fallbackWav = WavUtils.pcmToWav(new byte[16000 * 2 * 2], 16000, 1, 16);
-                AiService.detectBot(fallbackWav, isBot -> {
-                    Log.d(TAG, "Render POST /voice-analysis (fallback) response: isBot=" + isBot);
-                    if (isBot) {
-                        isSyntheticVoiceDetected = true;
-                    }
-                    evaluateLiveContext();
-                });
-            }
-        });
-    }
-
-    private void analyzeAcoustics(byte[] audioBytes) {
-        if (audioBytes == null || audioBytes.length < 100) return;
-
-        long sum = 0;
-        int zeroCrossings = 0;
-        int prevSample = 0;
-
-        for (int i = 44; i < audioBytes.length - 1; i += 2) {
-            short sample = (short) ((audioBytes[i + 1] << 8) | (audioBytes[i] & 0xff));
-            sum += (long) sample * sample;
-
-            if ((sample >= 0 && prevSample < 0) || (sample < 0 && prevSample >= 0)) {
-                zeroCrossings++;
-            }
-            prevSample = sample;
-        }
-
-        int totalSamples = Math.max(1, (audioBytes.length - 44) / 2);
-        double rms = Math.sqrt((double) sum / totalSamples);
-        double zcr = (double) zeroCrossings / totalSamples;
-
-        if (zcr > 0.35 && rms > 200) {
-            isSyntheticVoiceDetected = true;
-        }
-    }
-
     private void evaluateLiveContext() {
-        AiIntentAnalyzer.analyzeCallerIntent("", phone, name, intentResult -> {
+        if (latestServerAnalysis != null && (latestServerAnalysis.isScammer || latestServerAnalysis.riskScore > 35 || latestServerAnalysis.isBot)) {
+            LiveRiskResult.Level level;
+            if ("HIGH".equalsIgnoreCase(latestServerAnalysis.riskLevel) || "CRITICAL".equalsIgnoreCase(latestServerAnalysis.riskLevel)) {
+                level = LiveRiskResult.Level.HIGH;
+            } else if ("MEDIUM".equalsIgnoreCase(latestServerAnalysis.riskLevel)) {
+                level = LiveRiskResult.Level.MEDIUM;
+            } else {
+                level = LiveRiskResult.Level.LOW;
+            }
+
+            int score = latestServerAnalysis.riskScore > 0 ? latestServerAnalysis.riskScore : (int) (latestServerAnalysis.confidence * 100);
+            String summary = latestServerAnalysis.summary != null && !latestServerAnalysis.summary.isEmpty()
+                    ? latestServerAnalysis.summary : (latestServerAnalysis.isBot ? "Synthetic bot voice detected" : "Suspicious call behavior");
+            String recommendation = latestServerAnalysis.recommendation != null && !latestServerAnalysis.recommendation.isEmpty()
+                    ? latestServerAnalysis.recommendation : "Exercise caution.";
+
+            LiveRiskResult res = new LiveRiskResult(level, score, summary, recommendation);
+            res.setContextEvaluated(true);
+            res.setListeningDurationSeconds(secondsElapsed);
+            res.setBot(latestServerAnalysis.isBot || isSyntheticVoiceDetected);
+            res.setSpam(isSpamFromRender);
+            res.setTranscriptExcerpt(getCapturedTranscript());
+            res.setCallerIntent(latestServerAnalysis.intention != null ? latestServerAnalysis.intention : "Live Call Analysis");
+
+            if (latestServerAnalysis.threatIndicators != null) {
+                for (String ind : latestServerAnalysis.threatIndicators) {
+                    res.addIndicator("• " + ind);
+                }
+            }
+            if (latestServerAnalysis.scamType != null && !latestServerAnalysis.scamType.isEmpty()) {
+                res.addFlaggedKeyword(latestServerAnalysis.scamType);
+            }
+
+            currentRiskResult = res;
+            if (listener != null) {
+                listener.onRiskUpdated(res);
+            }
+            return;
+        }
+
+        AiIntentAnalyzer.analyzeCallerIntent(accumulatedTranscript, phone, name, intentResult -> {
             LiveRiskResult res = new LiveRiskResult(
                     intentResult.riskLevel,
                     intentResult.riskScore,
@@ -212,4 +277,4 @@ public class LiveCallAiProcessor {
             }
         });
     }
-}
+}

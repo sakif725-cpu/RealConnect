@@ -27,7 +27,17 @@ public interface AiApiService {
 
     class VoiceAnalysisResponse {
         public boolean isBot;
+        public boolean isScammer;
         public float confidence;
+        public int riskScore;
+        public String riskLevel; // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+        public String intention;
+        public String summary;
+        public String behaviorSummary;
+        public java.util.List<String> threatIndicators;
+        public String recommendation;
+        public String scamType;
+        public String transcript;
     }
 
     class VerificationResponse {
@@ -37,7 +47,12 @@ public interface AiApiService {
 
     class VoiceData {
         public String audioBase64;
+        public String text;
         public VoiceData(String audioBase64) { this.audioBase64 = audioBase64; }
+        public VoiceData(String audioBase64, String text) {
+            this.audioBase64 = audioBase64;
+            this.text = text;
+        }
     }
 
     class SpeakerData {

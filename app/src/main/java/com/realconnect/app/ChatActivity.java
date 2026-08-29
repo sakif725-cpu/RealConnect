@@ -106,8 +106,22 @@ public class ChatActivity extends AppCompatActivity {
         View cardAvatar = findViewById(R.id.card_chat_header_avatar);
         View.OnClickListener whipClickListener = v -> {
             if (WhipEffectManager.isWhipEnabled(ChatActivity.this)) {
-                WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar);
-                sendMagicWhipEvent();
+                long now = System.currentTimeMillis();
+                if (now - lastWhipTime > 7000) {
+                    localWhipStreak = 0;
+                }
+                lastWhipTime = now;
+                localWhipStreak++;
+                if (localWhipStreak > 5) {
+                    localWhipStreak = 1;
+                }
+                final int currentHit = localWhipStreak;
+                WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar, currentHit, () -> {
+                    if (currentHit >= 5) {
+                        localWhipStreak = 0;
+                    }
+                });
+                sendMagicWhipEvent(currentHit);
             }
         };
         imgAvatar.setOnClickListener(whipClickListener);
@@ -314,12 +328,15 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+    private int localWhipStreak = 0;
+    private long lastWhipTime = 0;
     private com.google.firebase.database.ValueEventListener magicEventListener;
 
-    private void sendMagicWhipEvent() {
+    private void sendMagicWhipEvent(int hitCount) {
         if (chatId == null || chatId.isEmpty()) return;
         java.util.Map<String, Object> whipData = new java.util.HashMap<>();
         whipData.put("action", "whip");
+        whipData.put("hitCount", hitCount);
         whipData.put("sender", selfPhone);
         whipData.put("timestamp", com.google.firebase.database.ServerValue.TIMESTAMP);
 
@@ -344,14 +361,21 @@ public class ChatActivity extends AppCompatActivity {
                     String action = snapshot.child("action").getValue(String.class);
                     String sender = snapshot.child("sender").getValue(String.class);
                     Long timestamp = snapshot.child("timestamp").getValue(Long.class);
+                    Long hitCountLong = snapshot.child("hitCount").getValue(Long.class);
+                    int hitCount = (hitCountLong != null) ? hitCountLong.intValue() : 1;
 
                     if ("whip".equals(action) && sender != null && !ChatRepository.cleanPhone(sender).equals(ChatRepository.cleanPhone(selfPhone))) {
                         if (timestamp != null && (timestamp >= (activityStartTime - 2000) || (System.currentTimeMillis() - timestamp) < 7000)) {
                             if (WhipEffectManager.isWhipEnabled(ChatActivity.this)) {
                                 runOnUiThread(() -> {
                                     ImageView imgAvatar = findViewById(R.id.img_chat_header_avatar);
-                                    WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar);
-                                    Toast.makeText(ChatActivity.this, "💥 Whipped by " + (targetName != null && !targetName.isEmpty() ? targetName : targetPhone) + "!", Toast.LENGTH_SHORT).show();
+                                    WhipEffectManager.triggerWhip(ChatActivity.this, imgAvatar, hitCount, () -> {});
+                                    String name = (targetName != null && !targetName.isEmpty() ? targetName : targetPhone);
+                                    if (hitCount >= 5) {
+                                        Toast.makeText(ChatActivity.this, "💥 " + name + "'s profile picture shattered into pieces!", Toast.LENGTH_SHORT).show();
+                                    } else {
+                                        Toast.makeText(ChatActivity.this, "💥 Whipped by " + name + "! (" + hitCount + "/5)", Toast.LENGTH_SHORT).show();
+                                    }
                                 });
                             }
                         }

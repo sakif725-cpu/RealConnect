@@ -49,7 +49,7 @@ public class LiveCallGuard {
         View view = LayoutInflater.from(activity).inflate(R.layout.dialog_live_risk, null);
         dialog.setContentView(view);
 
-        // Section 1: Live Input Audio Views
+        // Section 1: Live Input Conversation Views
         TextView textAudioContent = view.findViewById(R.id.text_input_audio_content);
         TextView textAudioSampling = view.findViewById(R.id.text_audio_sampling_info);
 
@@ -58,12 +58,16 @@ public class LiveCallGuard {
             textAudioContent.setText("\"" + excerpt.trim() + "\"");
             textAudioContent.setTextColor(Color.parseColor("#F1F5F9"));
         } else {
-            textAudioContent.setText("Listening to live audio stream... (Capturing dialogue & speech biomarkers)");
+            textAudioContent.setText("Monitoring live conversation text & spoken dialogue...");
             textAudioContent.setTextColor(Color.parseColor("#94A3B8"));
         }
 
         int duration = result.getListeningDurationSeconds();
-        textAudioSampling.setText("• Analyzed " + (duration > 0 ? duration : 5) + "s of real-time incoming audio stream");
+        if (duration < 10) {
+            textAudioSampling.setText("• Call active: " + duration + "s (AI text evaluation triggers at 10s)");
+        } else {
+            textAudioSampling.setText("• Analyzed " + duration + "s of real-time conversation text");
+        }
 
         // Section 2: Caller Intention (AI Analyzed)
         TextView textCallerIntent = view.findViewById(R.id.text_caller_intent);

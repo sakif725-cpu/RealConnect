@@ -18,7 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class AiService {
 
     private static final String TAG = "AiService";
-    private static final String BASE_URL = "https://ai-detection-sys.onrender.com/";
+    public static final String BASE_URL = "http://192.168.2.198:8000/";
     private static AiApiService apiService;
 
     public interface AiCallback<T> {
@@ -66,21 +66,46 @@ public class AiService {
     }
 
     public static void detectBot(byte[] voiceData, AiCallback<Boolean> callback) {
-        String audioBase64 = voiceData != null ? Base64.encodeToString(voiceData, Base64.NO_WRAP) : "";
-        getApi().analyzeVoice(new AiApiService.VoiceData(audioBase64)).enqueue(new Callback<AiApiService.VoiceAnalysisResponse>() {
+        analyzeLiveVoice(voiceData, response -> {
+            callback.onResult(response != null && response.isBot);
+        });
+    }
+
+    public static void analyzeText(String text, AiCallback<AiApiService.VoiceAnalysisResponse> callback) {
+        getApi().analyzeVoice(new AiApiService.VoiceData(null, text)).enqueue(new Callback<AiApiService.VoiceAnalysisResponse>() {
             @Override
             public void onResponse(Call<AiApiService.VoiceAnalysisResponse> call, Response<AiApiService.VoiceAnalysisResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    callback.onResult(response.body().isBot);
+                    callback.onResult(response.body());
                 } else {
-                    callback.onResult(false);
+                    callback.onResult(null);
                 }
             }
 
             @Override
             public void onFailure(Call<AiApiService.VoiceAnalysisResponse> call, Throwable t) {
-                Log.e(TAG, "Bot Detection Failed", t);
-                callback.onResult(false);
+                Log.e(TAG, "Text Risk Analysis Failed", t);
+                callback.onResult(null);
+            }
+        });
+    }
+
+    public static void analyzeLiveVoice(byte[] voiceData, AiCallback<AiApiService.VoiceAnalysisResponse> callback) {
+        String audioBase64 = voiceData != null ? Base64.encodeToString(voiceData, Base64.NO_WRAP) : "";
+        getApi().analyzeVoice(new AiApiService.VoiceData(audioBase64)).enqueue(new Callback<AiApiService.VoiceAnalysisResponse>() {
+            @Override
+            public void onResponse(Call<AiApiService.VoiceAnalysisResponse> call, Response<AiApiService.VoiceAnalysisResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onResult(response.body());
+                } else {
+                    callback.onResult(null);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AiApiService.VoiceAnalysisResponse> call, Throwable t) {
+                Log.e(TAG, "Voice Analysis Failed", t);
+                callback.onResult(null);
             }
         });
     }
