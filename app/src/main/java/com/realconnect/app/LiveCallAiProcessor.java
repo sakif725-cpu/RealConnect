@@ -84,6 +84,7 @@ public class LiveCallAiProcessor {
                 byte[] rawPcm = pcmBuffer.toByteArray();
                 pcmBuffer.reset();
                 lastAudioSendTime = now;
+                Log.d(TAG, "🎤 2.5s Audio accumulated (" + rawPcm.length + " bytes) -> Sending to Render AI backend...");
                 dispatchAudioSnippetToServer(rawPcm, sampleRate, channels);
             }
         }
@@ -97,10 +98,12 @@ public class LiveCallAiProcessor {
             isSendingAudio = false;
             if (response != null) {
                 latestServerAnalysis = response;
+                Log.i(TAG, "🛡️ Render AI Response: Risk=" + response.riskLevel + " (" + response.riskScore + "%) | Intent=" + response.intention + " | Transcript=\"" + response.transcript + "\"");
                 if (response.transcript != null && !response.transcript.trim().isEmpty()) {
                     accumulatedTranscript = response.transcript.trim();
-                    Log.d(TAG, "Server transcribed voice: \"" + accumulatedTranscript + "\"");
                 }
+            } else {
+                Log.w(TAG, "⚠️ Render AI returned null response or connection error");
             }
             evaluateLiveContext();
         });
