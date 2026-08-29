@@ -1,11 +1,14 @@
 package com.realconnect.app;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.card.MaterialCardView;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -21,18 +24,28 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onMessageLongClick(Message message);
     }
 
+    public interface OnThreatBannerClickListener {
+        void onThreatBannerClick(Message message, AiMessageThreatAnalyzer.ThreatReport report);
+    }
+
     private final String selfPhone;
     private final OnMessageLongClickListener longClickListener;
+    private final OnThreatBannerClickListener threatClickListener;
     private final List<Message> messageList = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
 
-    public MessageAdapter(String selfPhone, OnMessageLongClickListener longClickListener) {
+    public MessageAdapter(String selfPhone, OnMessageLongClickListener longClickListener, OnThreatBannerClickListener threatClickListener) {
         this.selfPhone = ChatRepository.cleanPhone(selfPhone);
         this.longClickListener = longClickListener;
+        this.threatClickListener = threatClickListener;
+    }
+
+    public MessageAdapter(String selfPhone, OnMessageLongClickListener longClickListener) {
+        this(selfPhone, longClickListener, null);
     }
 
     public MessageAdapter(String selfPhone) {
-        this(selfPhone, null);
+        this(selfPhone, null, null);
     }
 
     public void setMessages(List<Message> messages) {
@@ -90,6 +103,35 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ReceivedMessageViewHolder receivedHolder = (ReceivedMessageViewHolder) holder;
             receivedHolder.textBody.setText(message.getText());
             receivedHolder.textTime.setText(timeStr);
+
+            // AI Threat Analysis for received message
+            AiMessageThreatAnalyzer.ThreatReport report = AiMessageThreatAnalyzer.analyzeSync(message.getId(), message.getText());
+            if (report != null && report.isSuspicious && !report.userDismissed) {
+                receivedHolder.cardThreatBanner.setVisibility(View.VISIBLE);
+                receivedHolder.textThreatBadge.setText(report.shortBadge);
+                
+                try {
+                    int color = Color.parseColor(report.level.colorHex);
+                    int bg = Color.parseColor(report.level.bgHex);
+                    int stroke = Color.parseColor(report.level.strokeHex);
+                    
+                    receivedHolder.cardThreatBanner.setCardBackgroundColor(bg);
+                    receivedHolder.cardThreatBanner.setStrokeColor(stroke);
+                    receivedHolder.imgThreatIcon.setColorFilter(color);
+                    receivedHolder.textThreatBadge.setTextColor(color);
+                    receivedHolder.textThreatViewReport.setTextColor(color);
+                    receivedHolder.cardMessage.setStrokeColor(stroke);
+                } catch (Exception ignored) {}
+
+                receivedHolder.cardThreatBanner.setOnClickListener(v -> {
+                    if (threatClickListener != null) {
+                        threatClickListener.onThreatBannerClick(message, report);
+                    }
+                });
+            } else {
+                receivedHolder.cardThreatBanner.setVisibility(View.GONE);
+                receivedHolder.cardMessage.setStrokeColor(Color.parseColor("#E2E8F0"));
+            }
         }
 
         holder.itemView.setOnLongClickListener(v -> {
@@ -116,9 +158,20 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     static class ReceivedMessageViewHolder extends RecyclerView.ViewHolder {
+        MaterialCardView cardMessage;
+        MaterialCardView cardThreatBanner;
+        ImageView imgThreatIcon;
+        TextView textThreatBadge;
+        TextView textThreatViewReport;
         TextView textBody, textTime;
+
         ReceivedMessageViewHolder(@NonNull View itemView) {
             super(itemView);
+            cardMessage = itemView.findViewById(R.id.card_message_received);
+            cardThreatBanner = itemView.findViewById(R.id.card_threat_banner);
+            imgThreatIcon = itemView.findViewById(R.id.img_threat_banner_icon);
+            textThreatBadge = itemView.findViewById(R.id.text_threat_badge_title);
+            textThreatViewReport = itemView.findViewById(R.id.text_threat_view_report);
             textBody = itemView.findViewById(R.id.text_message_body);
             textTime = itemView.findViewById(R.id.text_message_time);
         }

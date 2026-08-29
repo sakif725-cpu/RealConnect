@@ -18,6 +18,19 @@ public interface MessageDao {
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestamp ASC")
     List<Message> getMessagesForChat(String chatId);
 
+    @Query("SELECT * FROM messages WHERE chatId = :chatId1 OR chatId = :chatId2 OR chatId = :chatId3 OR (senderPhone = :p1 AND receiverPhone = :p2) OR (senderPhone = :p2 AND receiverPhone = :p1) OR (senderPhone = :clean1 AND receiverPhone = :clean2) OR (senderPhone = :clean2 AND receiverPhone = :clean1) ORDER BY timestamp ASC")
+    List<Message> getMessagesForConversationDetailed(
+            String chatId1, String chatId2, String chatId3,
+            String p1, String p2,
+            String clean1, String clean2
+    );
+
+    @Query("SELECT * FROM messages ORDER BY timestamp ASC")
+    List<Message> getAllMessages();
+
+    @Query("SELECT * FROM messages WHERE chatId = :chatId OR (senderPhone LIKE '%' || :cleanTarget || '%' AND receiverPhone LIKE '%' || :cleanSelf || '%') OR (senderPhone LIKE '%' || :cleanSelf || '%' AND receiverPhone LIKE '%' || :cleanTarget || '%') ORDER BY timestamp ASC")
+    List<Message> getMessagesForConversation(String chatId, String cleanSelf, String cleanTarget);
+
     @Query("SELECT m.* FROM messages m INNER JOIN (SELECT chatId, MAX(timestamp) AS max_time FROM messages GROUP BY chatId) latest ON m.chatId = latest.chatId AND m.timestamp = latest.max_time ORDER BY m.timestamp DESC")
     List<Message> getRecentChats();
 

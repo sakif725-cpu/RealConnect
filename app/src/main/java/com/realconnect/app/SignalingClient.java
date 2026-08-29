@@ -75,8 +75,12 @@ public class SignalingClient {
     public void sendOffer(String targetPhone, String senderPhone, SessionDescription sdp) {
         String cleanTarget = ChatRepository.cleanPhone(targetPhone);
         String cleanSender = ChatRepository.cleanPhone(senderPhone);
-        dbRef.child(cleanTarget).child("caller").setValue(cleanSender);
-        dbRef.child(cleanTarget).child("offer").setValue(gson.toJson(new SdpPayload(sdp)));
+        Map<String, Object> offerData = new HashMap<>();
+        offerData.put("caller", cleanSender);
+        offerData.put("offer", gson.toJson(new SdpPayload(sdp)));
+        offerData.put("end", null);
+        offerData.put("answer", null);
+        dbRef.child(cleanTarget).updateChildren(offerData);
     }
 
     public void sendAnswer(String targetPhone, SessionDescription sdp) {
@@ -96,6 +100,7 @@ public class SignalingClient {
             updates.put("end", true);
             updates.put("offer", null);
             updates.put("caller", null);
+            updates.put("answer", null);
             dbRef.child(cleanTarget).updateChildren(updates);
         }
         dbRef.child(selfPhone).removeValue();
@@ -126,18 +131,20 @@ public class SignalingClient {
                         return;
                     }
 
-                    if (snapshot.hasChild("offer")) {
+                    if (snapshot.hasChild("offer") && snapshot.hasChild("caller")) {
                         String data = snapshot.child("offer").getValue(String.class);
                         String caller = snapshot.child("caller").getValue(String.class);
                         
-                        // Consume immediately
-                        dbRef.child(selfPhone).child("offer").removeValue();
-                        dbRef.child(selfPhone).child("caller").removeValue();
+                        // Consume offer atomically
+                        Map<String, Object> consumes = new HashMap<>();
+                        consumes.put("offer", null);
+                        consumes.put("caller", null);
+                        dbRef.child(selfPhone).updateChildren(consumes);
 
                         if (data != null && caller != null) {
                             SdpPayload payload = gson.fromJson(data, SdpPayload.class);
                             // Only process if offer is less than 30 seconds old
-                            if (System.currentTimeMillis() - payload.timestamp < 30000) {
+                            if (payload != null && (System.currentTimeMillis() - payload.timestamp < 30000)) {
                                 callback.onRemoteOfferReceived(caller, payload.toSdp());
                             }
                         }

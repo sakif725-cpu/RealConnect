@@ -98,7 +98,7 @@ public class AiIntentAnalyzer {
         );
 
         Request request = new Request.Builder()
-                .url(AiService.BASE_URL + "voice-analysis")
+                .url(AiService.getBaseUrl() + "voice-analysis")
                 .post(body)
                 .build();
 

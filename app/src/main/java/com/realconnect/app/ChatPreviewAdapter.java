@@ -18,7 +18,7 @@ import java.util.Locale;
 public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.ChatPreviewViewHolder> {
 
     public interface OnChatSelectedListener {
-        void onChatSelected(String contactName, String contactPhone);
+        void onChatSelected(Message message, String contactName, String contactPhone);
     }
 
     public interface OnChatLongClickListener {
@@ -93,7 +93,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
-                listener.onChatSelected(displayName, targetPhone);
+                listener.onChatSelected(message, displayName, targetPhone);
             }
         });
 

@@ -36,6 +36,11 @@ public class LiveCallAiProcessor {
     private String accumulatedTranscript = "";
     private AiApiService.VoiceAnalysisResponse latestServerAnalysis;
 
+    private android.speech.SpeechRecognizer speechRecognizer;
+    private android.content.Intent speechIntent;
+    private boolean isSpeechRecognizerActive = false;
+    private String lastSentTranscript = "";
+
     public LiveCallAiProcessor(Context context, String phone, String name, boolean isPreFlaggedSpam, AiScanListener listener) {
         this.context = context;
         this.phone = phone;
@@ -51,10 +56,11 @@ public class LiveCallAiProcessor {
         secondsElapsed = 0;
         isSyntheticVoiceDetected = false;
         accumulatedTranscript = "";
+        lastSentTranscript = "";
 
         Log.d(TAG, "Connecting to AI backend: " + AiService.BASE_URL);
         queryRenderSpamCheck();
-
+        initOnDeviceSpeechRecognizer();
         startTicker();
     }
 
@@ -64,27 +70,137 @@ public class LiveCallAiProcessor {
             handler.removeCallbacks(tickerRunnable);
             tickerRunnable = null;
         }
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer.stopListening();
+                speechRecognizer.cancel();
+                speechRecognizer.destroy();
+            } catch (Exception ignored) {}
+            speechRecognizer = null;
+            isSpeechRecognizerActive = false;
+        }
         synchronized (pcmBuffer) {
             pcmBuffer.reset();
         }
     }
 
+    private void initOnDeviceSpeechRecognizer() {
+        handler.post(() -> {
+            if (!android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
+                Log.w(TAG, "On-device speech recognition not available. Falling back to audio stream mode.");
+                isSpeechRecognizerActive = false;
+                return;
+            }
+
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S && 
+                    android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+                    speechRecognizer = android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context);
+                } else {
+                    speechRecognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(context);
+                }
+
+                speechIntent = new android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                speechIntent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, 
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                speechIntent.putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                speechIntent.putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+
+                speechRecognizer.setRecognitionListener(new android.speech.RecognitionListener() {
+                    @Override public void onReadyForSpeech(android.os.Bundle params) {}
+                    @Override public void onBeginningOfSpeech() {}
+                    @Override public void onRmsChanged(float rmsdB) {}
+                    @Override public void onBufferReceived(byte[] buffer) {}
+                    @Override public void onEndOfSpeech() { restartListening(); }
+                    @Override public void onError(int error) { restartListening(); }
+                    @Override public void onEvent(int eventType, android.os.Bundle params) {}
+
+                    @Override
+                    public void onResults(android.os.Bundle results) {
+                        processSpeechResults(results);
+                        restartListening();
+                    }
+
+                    @Override
+                    public void onPartialResults(android.os.Bundle partialResults) {
+                        processSpeechResults(partialResults);
+                    }
+                });
+
+                startListening();
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing on-device speech recognizer", e);
+                isSpeechRecognizerActive = false;
+            }
+        });
+    }
+
+    private void startListening() {
+        if (speechRecognizer != null && isRunning && speechIntent != null) {
+            try {
+                speechRecognizer.startListening(speechIntent);
+                isSpeechRecognizerActive = true;
+                Log.d(TAG, "🎙️ Local On-Device SpeechRecognizer started (Ultra-low bandwidth mode)");
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to start speech listening", e);
+            }
+        }
+    }
+
+    private void restartListening() {
+        if (!isRunning) return;
+        handler.postDelayed(() -> {
+            if (isRunning && speechRecognizer != null) {
+                startListening();
+            }
+        }, 300);
+    }
+
+    private void processSpeechResults(android.os.Bundle bundle) {
+        if (bundle == null) return;
+        java.util.ArrayList<String> matches = bundle.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && !matches.isEmpty()) {
+            String text = matches.get(0).trim();
+            if (!text.isEmpty() && !text.equalsIgnoreCase(lastSentTranscript)) {
+                lastSentTranscript = text;
+                accumulatedTranscript = text;
+                Log.d(TAG, "⚡ Spoken text transcribed locally (" + text.length() + " chars): \"" + text + "\" -> Sending ~50 bytes to AI Server");
+
+                // Send pure lightweight text to AI backend
+                AiService.analyzeText(text, response -> {
+                    if (response != null) {
+                        latestServerAnalysis = response;
+                        Log.i(TAG, "🛡️ AI Server Threat Result: Risk=" + response.riskLevel + " (" + response.riskScore + "%) | Scam=" + response.isScammer);
+                    }
+                    evaluateLiveContext();
+                });
+            }
+        }
+    }
+
+    private long lastTextSentTime = 0;
+
     public void onAudioSamplesCaptured(byte[] data, int sampleRate, int channels) {
         if (!isRunning || data == null || data.length == 0) return;
+
+        long now = System.currentTimeMillis();
+        // If local speech recognizer sent text recently, skip sending heavy audio
+        if (isSpeechRecognizerActive && (now - lastTextSentTime < 4000)) {
+            return;
+        }
 
         synchronized (pcmBuffer) {
             pcmBuffer.write(data, 0, data.length);
 
-            // Once we have 2.5 seconds of audio, dispatch to server
+            // Once we have 2.5 seconds of audio, dispatch audio to server
             int bytesPerSecond = sampleRate * channels * 2;
             int thresholdBytes = (int) (bytesPerSecond * 2.5);
 
-            long now = System.currentTimeMillis();
             if (pcmBuffer.size() >= thresholdBytes && (now - lastAudioSendTime >= 2500) && !isSendingAudio) {
                 byte[] rawPcm = pcmBuffer.toByteArray();
                 pcmBuffer.reset();
                 lastAudioSendTime = now;
-                Log.d(TAG, "🎤 2.5s Audio accumulated (" + rawPcm.length + " bytes) -> Sending to Render AI backend...");
+                Log.d(TAG, "🎤 Audio stream (" + rawPcm.length + " bytes) -> Sending to AI server for transcription...");
                 dispatchAudioSnippetToServer(rawPcm, sampleRate, channels);
             }
         }

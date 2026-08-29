@@ -56,6 +56,7 @@ public class ChatActivity extends AppCompatActivity {
 
         targetPhone = getIntent().getStringExtra("CONTACT_PHONE");
         targetName = getIntent().getStringExtra("CONTACT_NAME");
+        String passedChatId = getIntent().getStringExtra("CHAT_ID");
 
         if (selfPhone.isEmpty()) {
             Toast.makeText(this, "Please set your phone number in Profile first.", Toast.LENGTH_LONG).show();
@@ -70,7 +71,9 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         chatRepo = ChatRepository.getInstance(this);
-        chatId = ChatRepository.getChatId(selfPhone, targetPhone);
+        chatId = (passedChatId != null && !passedChatId.isEmpty())
+                ? passedChatId
+                : ChatRepository.getChatId(selfPhone, targetPhone);
 
         initViews();
         loadLocalHistory();
@@ -145,8 +148,20 @@ public class ChatActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true);
         recyclerView.setLayoutManager(layoutManager);
 
-        adapter = new MessageAdapter(selfPhone, this::showMessageOptionsDialog);
+        adapter = new MessageAdapter(selfPhone, this::showMessageOptionsDialog, this::showThreatDetailsDialog);
         recyclerView.setAdapter(adapter);
+
+        View chatInputBar = findViewById(R.id.chat_input_bar);
+        ViewCompat.setOnApplyWindowInsetsListener(chatInputBar, (v, insets) -> {
+            Insets navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars() | WindowInsetsCompat.Type.ime());
+            v.setPadding(
+                    v.getPaddingLeft(),
+                    (int) (10 * getResources().getDisplayMetrics().density),
+                    v.getPaddingRight(),
+                    navBarInsets.bottom + (int) (10 * getResources().getDisplayMetrics().density)
+            );
+            return insets;
+        });
 
         btnSend.setOnClickListener(v -> sendMessage());
 
@@ -159,6 +174,122 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+    private void showThreatDetailsDialog(Message message, AiMessageThreatAnalyzer.ThreatReport report) {
+        if (isFinishing() || isDestroyed() || message == null || report == null) return;
+
+        android.app.Dialog threatDialog = new android.app.Dialog(this);
+        threatDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View dialogView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_suspicious_message_details, null);
+        threatDialog.setContentView(dialogView);
+
+        com.google.android.material.card.MaterialCardView cardIconBg = dialogView.findViewById(R.id.card_threat_icon_bg);
+        ImageView imgShieldIcon = dialogView.findViewById(R.id.img_threat_shield_icon);
+        View btnClose = dialogView.findViewById(R.id.btn_threat_close);
+        com.google.android.material.card.MaterialCardView cardSeverityBadge = dialogView.findViewById(R.id.card_threat_severity_badge);
+        TextView textLevel = dialogView.findViewById(R.id.text_threat_level);
+        TextView textScore = dialogView.findViewById(R.id.text_threat_score);
+        TextView textCategory = dialogView.findViewById(R.id.text_threat_category);
+        TextView textFlaggedQuote = dialogView.findViewById(R.id.text_flagged_message_quote);
+        TextView textExplanation = dialogView.findViewById(R.id.text_threat_explanation);
+        TextView textIndicators = dialogView.findViewById(R.id.text_threat_indicators);
+        TextView textRecommendation = dialogView.findViewById(R.id.text_threat_recommendation);
+        com.google.android.material.button.MaterialButton btnBlockSender = dialogView.findViewById(R.id.btn_threat_block_sender);
+        com.google.android.material.button.MaterialButton btnDeleteMsg = dialogView.findViewById(R.id.btn_threat_delete_msg);
+        com.google.android.material.button.MaterialButton btnDismiss = dialogView.findViewById(R.id.btn_threat_dismiss);
+
+        // Bind data
+        textCategory.setText(report.category);
+        textFlaggedQuote.setText("\"" + message.getText() + "\"");
+        textExplanation.setText(report.explanation);
+        textRecommendation.setText(report.recommendation);
+
+        if (report.isSuspicious) {
+            textLevel.setText(report.level == AiMessageThreatAnalyzer.ThreatLevel.CRITICAL
+                    ? "🚨 CRITICAL THREAT DETECTED" : "⚠️ SUSPICIOUS MESSAGE DETECTED");
+            textScore.setText(report.riskScore + "% Risk");
+        } else {
+            textLevel.setText("🛡️ MESSAGE EVALUATED AS SAFE");
+            textScore.setText("Safe (0% Risk)");
+        }
+
+        try {
+            int color = Color.parseColor(report.level.colorHex);
+            int bg = Color.parseColor(report.level.bgHex);
+            int stroke = Color.parseColor(report.level.strokeHex);
+
+            cardIconBg.setCardBackgroundColor(bg);
+            imgShieldIcon.setColorFilter(color);
+            cardSeverityBadge.setCardBackgroundColor(bg);
+            cardSeverityBadge.setStrokeColor(stroke);
+            textLevel.setTextColor(color);
+            textScore.setTextColor(color);
+        } catch (Exception ignored) {}
+
+        if (report.indicators != null && !report.indicators.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < report.indicators.size(); i++) {
+                sb.append(report.indicators.get(i));
+                if (i < report.indicators.size() - 1) sb.append("\n");
+            }
+            textIndicators.setText(sb.toString());
+            textIndicators.setVisibility(View.VISIBLE);
+        } else {
+            textIndicators.setVisibility(View.GONE);
+        }
+
+        // Deep async AI enrichment
+        AiMessageThreatAnalyzer.analyzeAsync(message.getId(), message.getText(), enriched -> {
+            if (!isFinishing() && !isDestroyed() && enriched != null && threatDialog.isShowing()) {
+                textExplanation.setText(enriched.explanation);
+                textRecommendation.setText(enriched.recommendation);
+                if (enriched.indicators != null && !enriched.indicators.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < enriched.indicators.size(); i++) {
+                        sb.append(enriched.indicators.get(i));
+                        if (i < enriched.indicators.size() - 1) sb.append("\n");
+                    }
+                    textIndicators.setText(sb.toString());
+                    textIndicators.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+
+        btnClose.setOnClickListener(v -> threatDialog.dismiss());
+
+        // Block Sender Action
+        btnBlockSender.setOnClickListener(v -> {
+            threatDialog.dismiss();
+            BlockedNumbersManager.blockNumber(this, targetPhone);
+            Toast.makeText(this, "Blocked " + (targetName != null && !targetName.isEmpty() ? targetName : targetPhone), Toast.LENGTH_SHORT).show();
+        });
+
+        // Delete Message Action
+        btnDeleteMsg.setOnClickListener(v -> {
+            threatDialog.dismiss();
+            chatRepo.deleteMessage(message.getId());
+            loadLocalHistory();
+            Toast.makeText(this, "Suspicious message deleted", Toast.LENGTH_SHORT).show();
+        });
+
+        // Dismiss / Mark Safe Action
+        btnDismiss.setOnClickListener(v -> {
+            threatDialog.dismiss();
+            AiMessageThreatAnalyzer.markAsDismissed(message.getId());
+            adapter.notifyDataSetChanged();
+            Toast.makeText(this, "Warning dismissed", Toast.LENGTH_SHORT).show();
+        });
+
+        threatDialog.show();
+        if (threatDialog.getWindow() != null) {
+            threatDialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            threatDialog.getWindow().setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            threatDialog.getWindow().setGravity(android.view.Gravity.CENTER);
+        }
+    }
+
     private void showMessageOptionsDialog(Message message) {
         if (isFinishing() || isDestroyed()) return;
 
@@ -169,6 +300,7 @@ public class ChatActivity extends AppCompatActivity {
 
         View actionCopy = dialogView.findViewById(R.id.action_copy_msg);
         View actionShare = dialogView.findViewById(R.id.action_share_msg);
+        View actionScanAi = dialogView.findViewById(R.id.action_scan_ai);
         View actionDelete = dialogView.findViewById(R.id.action_delete_msg);
 
         // 1. Copy Message Text
@@ -191,9 +323,17 @@ public class ChatActivity extends AppCompatActivity {
             startActivity(Intent.createChooser(shareIntent, "Share Message"));
         });
 
-        // 3. Delete Message
+        // 3. AI Security Scan
+        if (actionScanAi != null) {
+            actionScanAi.setOnClickListener(v -> {
+                floatingDialog.dismiss();
+                AiMessageThreatAnalyzer.ThreatReport report = AiMessageThreatAnalyzer.analyzeSync(message.getId(), message.getText());
+                showThreatDetailsDialog(message, report);
+            });
+        }
+
+        // 4. Delete Message
         actionDelete.setOnClickListener(v -> {
-            floatingDialog.dismiss();
             android.app.Dialog confirmDialog = new android.app.Dialog(this);
             confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
             View confirmView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_confirm_action, null);
@@ -248,8 +388,11 @@ public class ChatActivity extends AppCompatActivity {
         AvatarHelper.loadAvatar(this, imgAvatar, phone, name);
     }
 
+    private ChatRepository.OnMessageReceivedListener globalMessageListener;
+
     private void loadLocalHistory() {
-        List<Message> localMessages = chatRepo.getLocalMessages(chatId);
+        String passedChatId = getIntent().getStringExtra("CHAT_ID");
+        List<Message> localMessages = chatRepo.getLocalMessages(passedChatId, selfPhone, targetPhone);
         adapter.setMessages(localMessages);
         if (adapter.getItemCount() > 0) {
             recyclerView.scrollToPosition(adapter.getItemCount() - 1);
@@ -258,13 +401,43 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void setupRealtimeListener() {
-        chatRepo.startListeningForMessages(chatId, message -> runOnUiThread(() -> {
-            adapter.addMessage(message);
-            if (adapter.getItemCount() > 0) {
-                recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+        String passedChatId = getIntent().getStringExtra("CHAT_ID");
+        chatRepo.startListeningForMessages(selfPhone, targetPhone, passedChatId, message -> runOnUiThread(() -> {
+            if (message != null) {
+                adapter.addMessage(message);
+                if (adapter.getItemCount() > 0) {
+                    recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+                }
+                chatRepo.markAsRead(chatId, selfPhone);
             }
-            chatRepo.markAsRead(chatId, selfPhone);
         }));
+
+        globalMessageListener = message -> {
+            if (message != null) {
+                String cleanSelf = ChatRepository.cleanPhone(selfPhone);
+                String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+                String msgSender = ChatRepository.cleanPhone(message.getSenderPhone());
+                String msgReceiver = ChatRepository.cleanPhone(message.getReceiverPhone());
+                String msgChatId = message.getChatId();
+
+                boolean belongsToThisChat = (chatId != null && chatId.equals(msgChatId))
+                        || (passedChatId != null && passedChatId.equals(msgChatId))
+                        || (cleanSelf.equals(msgSender) && cleanTarget.equals(msgReceiver))
+                        || (cleanTarget.equals(msgSender) && cleanSelf.equals(msgReceiver))
+                        || (targetPhone != null && (targetPhone.equals(message.getSenderPhone()) || targetPhone.equals(message.getReceiverPhone())));
+
+                if (belongsToThisChat) {
+                    runOnUiThread(() -> {
+                        adapter.addMessage(message);
+                        if (adapter.getItemCount() > 0) {
+                            recyclerView.smoothScrollToPosition(adapter.getItemCount() - 1);
+                        }
+                        chatRepo.markAsRead(chatId, selfPhone);
+                    });
+                }
+            }
+        };
+        chatRepo.addGlobalListener(globalMessageListener);
     }
 
     private void sendMessage() {
@@ -283,6 +456,7 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        loadLocalHistory();
         isProcessingCall = false;
         new Handler(Looper.getMainLooper()).postDelayed(this::setupIncomingCallListener, 300);
     }
@@ -312,18 +486,18 @@ public class ChatActivity extends AppCompatActivity {
 
                 destroySignaling();
 
-                AiService.checkSpam(callerPhone, isSpam -> {
-                    ContactRepository.getInstance(ChatActivity.this).resolveCallerName(callerPhone, callerName -> {
-                        Intent intent = new Intent(ChatActivity.this, CallingActivity.class);
-                        intent.putExtra("IS_INCOMING", true);
-                        intent.putExtra("IS_SPAM", isSpam);
-                        intent.putExtra("REMOTE_OFFER", description.description);
-                        intent.putExtra("CONTACT_PHONE", callerPhone);
-                        intent.putExtra("CONTACT_NAME", callerName);
+                // INSTANT RINGING: Resolve local contact name synchronously and launch CallingActivity immediately!
+                String localName = ContactRepository.getInstance(ChatActivity.this).findContactByNumber(callerPhone);
+                String displayName = (localName != null && !localName.isEmpty()) ? localName : callerPhone;
 
-                        startActivity(intent);
-                    });
-                });
+                Intent intent = new Intent(ChatActivity.this, CallingActivity.class);
+                intent.putExtra("IS_INCOMING", true);
+                intent.putExtra("IS_SPAM", false);
+                intent.putExtra("REMOTE_OFFER", description.description);
+                intent.putExtra("CONTACT_PHONE", callerPhone);
+                intent.putExtra("CONTACT_NAME", displayName);
+
+                startActivity(intent);
             }
         });
     }
@@ -397,6 +571,9 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (globalMessageListener != null) {
+            chatRepo.removeGlobalListener(globalMessageListener);
+        }
         destroySignaling();
         if (chatRepo != null && chatId != null) {
             chatRepo.stopListeningForMessages(chatId);

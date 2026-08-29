@@ -178,15 +178,19 @@ public class CallService extends Service {
                     Log.d(TAG, "Ignored incoming call from blocked number: " + callerPhone);
                     return;
                 }
+                if (ActiveCallSession.getInstance().isActive()) {
+                    Log.d(TAG, "Call already active, ignoring offer from: " + callerPhone);
+                    return;
+                }
                 isProcessingCall = true;
 
                 destroySignaling();
 
-                AiService.checkSpam(callerPhone, isSpam -> {
-                    ContactRepository.getInstance(CallService.this).resolveCallerName(callerPhone, displayName -> {
-                        showIncomingCall(callerPhone, displayName, isSpam, description.description);
-                    });
-                });
+                // INSTANT RINGING: Resolve local contact name synchronously (0ms) and show call immediately!
+                String localName = ContactRepository.getInstance(CallService.this).findContactByNumber(callerPhone);
+                String displayName = (localName != null && !localName.isEmpty()) ? localName : callerPhone;
+
+                showIncomingCall(callerPhone, displayName, false, description.description);
             }
         });
     }
@@ -270,6 +274,9 @@ public class CallService extends Service {
         Intent chatIntent = new Intent(this, ChatActivity.class);
         chatIntent.putExtra("CONTACT_PHONE", senderPhone);
         chatIntent.putExtra("CONTACT_NAME", displayName);
+        if (message.getChatId() != null && !message.getChatId().isEmpty()) {
+            chatIntent.putExtra("CHAT_ID", message.getChatId());
+        }
         chatIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(

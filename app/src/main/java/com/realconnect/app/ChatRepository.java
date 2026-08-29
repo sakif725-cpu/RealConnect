@@ -9,6 +9,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,54 @@ public class ChatRepository {
         return messageDao.getMessagesForChat(chatId);
     }
 
+    public List<Message> getLocalMessages(String selfPhone, String targetPhone) {
+        return getLocalMessages(null, selfPhone, targetPhone);
+    }
+
+    public List<Message> getLocalMessages(@Nullable String passedChatId, String selfPhone, String targetPhone) {
+        String cleanSelf = cleanPhone(selfPhone);
+        String cleanTarget = cleanPhone(targetPhone);
+        String cleanChatId = getChatId(cleanSelf, cleanTarget);
+
+        String rawA = selfPhone != null ? selfPhone.trim() : "";
+        String rawB = targetPhone != null ? targetPhone.trim() : "";
+        String rawChatId = rawA.compareTo(rawB) < 0 ? rawA + "_" + rawB : rawB + "_" + rawA;
+
+        String id1 = (passedChatId != null && !passedChatId.isEmpty()) ? passedChatId : cleanChatId;
+        String id2 = cleanChatId;
+        String id3 = rawChatId;
+
+        List<Message> result = messageDao.getMessagesForConversationDetailed(
+                id1, id2, id3,
+                rawA, rawB,
+                cleanSelf, cleanTarget
+        );
+
+        if (result == null || result.isEmpty()) {
+            List<Message> allMessages = messageDao.getAllMessages();
+            if (allMessages != null && !allMessages.isEmpty()) {
+                result = new ArrayList<>();
+                for (Message m : allMessages) {
+                    String mSender = cleanPhone(m.getSenderPhone());
+                    String mReceiver = cleanPhone(m.getReceiverPhone());
+                    String mChatId = m.getChatId();
+
+                    boolean match = (mChatId != null && (mChatId.equals(id1) || mChatId.equals(id2) || mChatId.equals(id3)))
+                            || (cleanSelf.equals(mSender) && cleanTarget.equals(mReceiver))
+                            || (cleanTarget.equals(mSender) && cleanSelf.equals(mReceiver))
+                            || (rawA.equals(m.getSenderPhone()) && rawB.equals(m.getReceiverPhone()))
+                            || (rawB.equals(m.getSenderPhone()) && rawA.equals(m.getReceiverPhone()));
+                    if (match) {
+                        result.add(m);
+                    }
+                }
+                java.util.Collections.sort(result, (a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
+            }
+        }
+
+        return result != null ? result : new ArrayList<>();
+    }
+
     public List<Message> getRecentChats() {
         return messageDao.getRecentChats();
     }
@@ -205,6 +254,28 @@ public class ChatRepository {
             userInboxListener = null;
             currentListeningPhone = null;
         }
+    }
+
+    public void startListeningForMessages(String phoneA, String phoneB, @Nullable String extraChatId, OnMessageReceivedListener listener) {
+        String cleanA = cleanPhone(phoneA);
+        String cleanB = cleanPhone(phoneB);
+        String chatId = getChatId(cleanA, cleanB);
+        startListeningForMessages(chatId, listener);
+
+        String rawA = phoneA != null ? phoneA.trim() : "";
+        String rawB = phoneB != null ? phoneB.trim() : "";
+        String rawChatId = rawA.compareTo(rawB) < 0 ? rawA + "_" + rawB : rawB + "_" + rawA;
+        if (!rawChatId.equals(chatId) && !rawChatId.isEmpty()) {
+            startListeningForMessages(rawChatId, listener);
+        }
+
+        if (extraChatId != null && !extraChatId.isEmpty() && !extraChatId.equals(chatId) && !extraChatId.equals(rawChatId)) {
+            startListeningForMessages(extraChatId, listener);
+        }
+    }
+
+    public void startListeningForMessages(String phoneA, String phoneB, OnMessageReceivedListener listener) {
+        startListeningForMessages(phoneA, phoneB, null, listener);
     }
 
     public void startListeningForMessages(String chatId, OnMessageReceivedListener listener) {

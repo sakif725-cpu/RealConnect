@@ -18,26 +18,52 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class AiService {
 
     private static final String TAG = "AiService";
-    public static final String BASE_URL = "http://192.168.2.198:8000/";
+    public static final String DEFAULT_CLOUD_URL = "https://unadulterated-katalina-nonceremonially.ngrok-free.dev/";
+    public static String BASE_URL = "https://unadulterated-katalina-nonceremonially.ngrok-free.dev/";
     private static AiApiService apiService;
 
     public interface AiCallback<T> {
         void onResult(T result);
     }
 
-    private static AiApiService getApi() {
+    public static synchronized void setBaseUrl(String newUrl) {
+        if (newUrl != null && !newUrl.trim().isEmpty()) {
+            String sanitized = newUrl.trim();
+            if (!sanitized.endsWith("/")) {
+                sanitized += "/";
+            }
+            BASE_URL = sanitized;
+            apiService = null; // Recreate Retrofit instance on next call
+            Log.d(TAG, "AI Backend URL updated to: " + BASE_URL);
+        }
+    }
+
+    public static String getBaseUrl() {
+        return BASE_URL != null ? BASE_URL : DEFAULT_CLOUD_URL;
+    }
+
+    private static synchronized AiApiService getApi() {
         if (apiService == null) {
             HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
             loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
 
             OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                    .addInterceptor(chain -> {
+                        okhttp3.Request original = chain.request();
+                        okhttp3.Request request = original.newBuilder()
+                                .header("ngrok-skip-browser-warning", "true")
+                                .header("User-Agent", "RealConnect-Android")
+                                .method(original.method(), original.body())
+                                .build();
+                        return chain.proceed(request);
+                    })
                     .addInterceptor(loggingInterceptor)
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(15, TimeUnit.SECONDS)
                     .build();
 
             Retrofit retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
+                    .baseUrl(getBaseUrl())
                     .client(okHttpClient)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();

@@ -53,7 +53,7 @@ public class CallingActivity extends AppCompatActivity {
     private boolean running = false;
     private boolean isConnected = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final List<IceCandidate> pendingIceCandidates = new ArrayList<>();
+    private final List<IceCandidate> pendingIceCandidates = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     // WebRTC components
     private PeerConnectionFactory factory;
@@ -143,6 +143,12 @@ public class CallingActivity extends AppCompatActivity {
             
             if (getIntent().getBooleanExtra("IS_SPAM", false)) {
                 showSpamWarning();
+            } else {
+                AiService.checkSpam(targetPhone, isSpam -> {
+                    if (isSpam && !isFinishing() && !isDestroyed()) {
+                        runOnUiThread(this::showSpamWarning);
+                    }
+                });
             }
         } else {
             btnAcceptCall.setVisibility(View.GONE);
@@ -256,6 +262,10 @@ public class CallingActivity extends AppCompatActivity {
         isConnected = true;
         runOnUiThread(() -> {
             stopRinging();
+            if (audioManager != null) {
+                audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                audioManager.setMicrophoneMute(false);
+            }
             textCallTimer.setText("00:00");
             controlsContainer.setVisibility(View.VISIBLE);
             running = true;
@@ -353,7 +363,7 @@ public class CallingActivity extends AppCompatActivity {
 
             @Override
             public void onRemoteIceCandidateReceived(IceCandidate candidate) {
-                if (peerConnection != null && peerConnection.getRemoteDescription() != null) {
+                if (peerConnection != null && peerConnection.getRemoteDescription() != null && peerConnection.getLocalDescription() != null) {
                     peerConnection.addIceCandidate(candidate);
                 } else {
                     pendingIceCandidates.add(candidate);
@@ -372,11 +382,15 @@ public class CallingActivity extends AppCompatActivity {
         });
     }
 
-    private void drainRemoteCandidates() {
-        if (peerConnection == null || peerConnection.getRemoteDescription() == null) return;
+    private synchronized void drainRemoteCandidates() {
+        if (peerConnection == null || peerConnection.getRemoteDescription() == null || peerConnection.getLocalDescription() == null) return;
         Log.d(TAG, "Draining " + pendingIceCandidates.size() + " candidates");
         for (IceCandidate candidate : pendingIceCandidates) {
-            peerConnection.addIceCandidate(candidate);
+            try {
+                peerConnection.addIceCandidate(candidate);
+            } catch (Exception e) {
+                Log.e(TAG, "Error adding ICE candidate", e);
+            }
         }
         pendingIceCandidates.clear();
     }
@@ -391,10 +405,7 @@ public class CallingActivity extends AppCompatActivity {
                 peerConnection.setRemoteDescription(new SimpleSdpObserver() {
                     @Override
                     public void onSetSuccess() {
-                        runOnUiThread(() -> {
-                            createAnswer();
-                            drainRemoteCandidates();
-                        });
+                        runOnUiThread(() -> createAnswer());
                     }
                 }, offer);
             }
@@ -409,7 +420,12 @@ public class CallingActivity extends AppCompatActivity {
         peerConnection.createOffer(new SimpleSdpObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new SimpleSdpObserver() {
+                    @Override
+                    public void onSetSuccess() {
+                        runOnUiThread(() -> drainRemoteCandidates());
+                    }
+                }, sessionDescription);
                 signalingClient.sendOffer(targetPhone, selfPhone, sessionDescription);
             }
         }, constraints);
@@ -421,7 +437,12 @@ public class CallingActivity extends AppCompatActivity {
         peerConnection.createAnswer(new SimpleSdpObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new SimpleSdpObserver() {
+                    @Override
+                    public void onSetSuccess() {
+                        runOnUiThread(() -> drainRemoteCandidates());
+                    }
+                }, sessionDescription);
                 signalingClient.sendAnswer(targetPhone, sessionDescription);
             }
         }, constraints);
@@ -508,7 +529,13 @@ public class CallingActivity extends AppCompatActivity {
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.services.mozilla.com:3478").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.sipgate.net:3478").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.voip.blackberry.com:3478").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.nextcloud.com:443").createIceServer());
 
         // Multi-Port & Multi-Protocol OpenRelay TURN Relays (UDP + TCP + TLS)
         iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
@@ -518,6 +545,8 @@ public class CallingActivity extends AppCompatActivity {
         iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
                 .setUsername("openrelay").setPassword("openrelay").createIceServer());
         iceServers.add(PeerConnection.IceServer.builder("turns:openrelay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turns:openrelay.metered.ca:5349?transport=tcp")
                 .setUsername("openrelay").setPassword("openrelay").createIceServer());
 
         iceServers.add(PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
@@ -529,6 +558,15 @@ public class CallingActivity extends AppCompatActivity {
         iceServers.add(PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443?transport=tcp")
                 .setUsername("openrelay").setPassword("openrelay").createIceServer());
 
+        iceServers.add(PeerConnection.IceServer.builder("turn:standard.relay.metered.ca:80")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:standard.relay.metered.ca:443")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:standard.relay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turns:standard.relay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay").setPassword("openrelay").createIceServer());
+
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
         rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
@@ -536,6 +574,8 @@ public class CallingActivity extends AppCompatActivity {
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
+        rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
+        rtcConfig.iceCandidatePoolSize = 2;
 
         peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override public void onSignalingChange(PeerConnection.SignalingState s) {}

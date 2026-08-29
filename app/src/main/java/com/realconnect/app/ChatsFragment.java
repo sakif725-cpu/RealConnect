@@ -43,7 +43,7 @@ public class ChatsFragment extends Fragment {
         adapter = new ChatPreviewAdapter(
                 requireContext(),
                 selfPhone,
-                (contactName, contactPhone) -> openChatActivity(contactName, contactPhone),
+                (message, contactName, contactPhone) -> openChatActivity(contactName, contactPhone, message != null ? message.getChatId() : null),
                 (message, contactName, contactPhone) -> showChatOptionsDialog(message, contactName, contactPhone)
         );
 
@@ -284,11 +284,18 @@ public class ChatsFragment extends Fragment {
         }
     }
 
-    private void openChatActivity(String name, String phone) {
+    private void openChatActivity(String name, String phone, @Nullable String chatId) {
         Intent intent = new Intent(getActivity(), ChatActivity.class);
         intent.putExtra("CONTACT_NAME", name);
         intent.putExtra("CONTACT_PHONE", phone);
+        if (chatId != null && !chatId.isEmpty()) {
+            intent.putExtra("CHAT_ID", chatId);
+        }
         startActivity(intent);
+    }
+
+    private void openChatActivity(String name, String phone) {
+        openChatActivity(name, phone, null);
     }
 
     private void showChatOptionsDialog(Message message, String contactName, String contactPhone) {
