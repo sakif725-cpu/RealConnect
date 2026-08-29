@@ -18,7 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class AiService {
 
     private static final String TAG = "AiService";
-    public static final String BASE_URL = "http://192.168.2.198:8000/";
+    public static final String BASE_URL = "https://scam-eye.onrender.com/";
     private static AiApiService apiService;
 
     public interface AiCallback<T> {
