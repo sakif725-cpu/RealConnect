@@ -504,14 +504,43 @@ public class CallingActivity extends AppCompatActivity {
         localAudioTrack.setEnabled(true);
 
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+        // Global Google STUN Servers
         iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer());
+
+        // Free OpenRelay TURN Servers for 100% Guaranteed 4G/5G Cellular & Symmetric NAT Traversal
+        iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+                .setUsername("openrelay")
+                .setPassword("openrelay")
+                .createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
+                .setUsername("openrelay")
+                .setPassword("openrelay")
+                .createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
+                .setUsername("openrelay")
+                .setPassword("openrelay")
+                .createIceServer());
 
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
+        rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
+        rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+
         peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override public void onSignalingChange(PeerConnection.SignalingState s) {}
             @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) {
                 Log.d(TAG, "ICE State: " + s.name());
                 if (s == PeerConnection.IceConnectionState.CONNECTED || s == PeerConnection.IceConnectionState.COMPLETED) {
+                    onCallConnected();
+                }
+            }
+            @Override
+            public void onConnectionChange(PeerConnection.PeerConnectionState newState) {
+                Log.d(TAG, "PeerConnection State: " + newState.name());
+                if (newState == PeerConnection.PeerConnectionState.CONNECTED) {
                     onCallConnected();
                 }
             }
