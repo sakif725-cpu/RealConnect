@@ -100,10 +100,15 @@ public class SignalingClient {
         dbRef.child(selfPhone).removeValue();
     }
 
+    private ChildEventListener candidatesListener;
+
     public void destroy() {
         isDestroyed = true;
         if (listener != null) {
             dbRef.child(selfPhone).removeEventListener(listener);
+        }
+        if (candidatesListener != null) {
+            dbRef.child(selfPhone).child("candidates").removeEventListener(candidatesListener);
         }
     }
 
@@ -144,16 +149,6 @@ public class SignalingClient {
                             callback.onRemoteAnswerReceived(gson.fromJson(data, SdpPayload.class).toSdp());
                         }
                     }
-
-                    if (snapshot.hasChild("candidates")) {
-                        for (DataSnapshot data : snapshot.child("candidates").getChildren()) {
-                            String candidateStr = data.getValue(String.class);
-                            if (candidateStr != null) {
-                                callback.onRemoteIceCandidateReceived(gson.fromJson(candidateStr, CandidatePayload.class).toCandidate());
-                            }
-                        }
-                        dbRef.child(selfPhone).child("candidates").removeValue();
-                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Signaling logic error", e);
                 }
@@ -163,5 +158,31 @@ public class SignalingClient {
             public void onCancelled(DatabaseError error) {}
         };
         dbRef.child(selfPhone).addValueEventListener(listener);
+
+        // Dedicated ChildEventListener for ICE candidates to prevent dropping TURN/STUN relay candidates
+        candidatesListener = new com.google.firebase.database.ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
+                if (isDestroyed || !snapshot.exists()) return;
+                try {
+                    String candidateStr = snapshot.getValue(String.class);
+                    if (candidateStr != null) {
+                        CandidatePayload payload = gson.fromJson(candidateStr, CandidatePayload.class);
+                        if (payload != null) {
+                            callback.onRemoteIceCandidateReceived(payload.toCandidate());
+                        }
+                        snapshot.getRef().removeValue();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing ICE candidate", e);
+                }
+            }
+
+            @Override public void onChildChanged(DataSnapshot snapshot, String previousChildName) {}
+            @Override public void onChildRemoved(DataSnapshot snapshot) {}
+            @Override public void onChildMoved(DataSnapshot snapshot, String previousChildName) {}
+            @Override public void onCancelled(DatabaseError error) {}
+        };
+        dbRef.child(selfPhone).child("candidates").addChildEventListener(candidatesListener);
     }
 }
