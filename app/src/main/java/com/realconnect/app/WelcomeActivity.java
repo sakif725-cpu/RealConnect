@@ -7,6 +7,8 @@ import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class WelcomeActivity extends AppCompatActivity {
 
@@ -14,9 +16,10 @@ public class WelcomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check if user has already onboarded / logged in with their phone number
+        // Check if user has already onboarded / logged in with their phone number or Firebase account
         SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
         String selfPhone = prefs.getString("phone", null);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
         if (selfPhone != null && !selfPhone.trim().isEmpty()) {
             // Existing user: Skip welcome and go straight to the main app

@@ -32,156 +32,312 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="28dp">
+            android:layout_height="wrap_content">
 
-            <!-- STEP 1: PHONE NUMBER INPUT -->
             <LinearLayout
-                android:id="@+id/layout_step_phone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="visible">
+                android:padding="28dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Get Started"
-                    android:textColor="#38BDF8"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Enter Phone Number"
-                    android:textColor="@color/white"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="We will send an OTP verification code to verify your identity."
-                    android:textColor="#94A3B8"
-                    android:textSize="14sp"
-                    android:lineSpacingExtra="2dp" />
-
-                <EditText
-                    android:id="@+id/edit_phone_input"
+                <!-- STEP 1: SIGN IN / PHONE & GOOGLE -->
+                <LinearLayout
+                    android:id="@+id/layout_step_phone"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="24dp"
-                    android:background="@drawable/bg_auth_input"
-                    android:drawableStart="@drawable/ic_call"
-                    android:drawablePadding="12dp"
-                    android:drawableTint="#38BDF8"
-                    android:hint="+1 (555) 000-0000"
-                    android:inputType="phone"
-                    android:paddingHorizontal="16dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="#64748B"
-                    android:textSize="16sp" />
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="visible">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_send_otp"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Welcome to RealConnect"
+                        android:textColor="#38BDF8"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Sign In"
+                        android:textColor="@color/white"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Sign in with your Google account or phone number to start secure AI-guarded calling."
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <!-- GOOGLE SIGN IN BUTTON -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_google_sign_in"
+                        android:layout_width="match_parent"
+                        android:layout_height="54dp"
+                        android:layout_marginTop="24dp"
+                        android:backgroundTint="#FFFFFF"
+                        android:text="Continue with Google"
+                        android:textColor="#1F2937"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:elevation="3dp"
+                        app:icon="@drawable/ic_google_logo"
+                        app:iconGravity="textStart"
+                        app:iconPadding="12dp"
+                        app:iconSize="22dp"
+                        app:iconTint="@null" />
+
+                    <!-- DIVIDER WITH 'OR' -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginVertical="20dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="#334155" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingHorizontal="16dp"
+                            android:text="OR"
+                            android:textColor="#64748B"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="#334155" />
+                    </LinearLayout>
+
+                    <EditText
+                        android:id="@+id/edit_phone_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:background="@drawable/bg_auth_input"
+                        android:drawableStart="@drawable/ic_call"
+                        android:drawablePadding="12dp"
+                        android:drawableTint="#38BDF8"
+                        android:hint="+1 (555) 000-0000"
+                        android:inputType="phone"
+                        android:paddingHorizontal="16dp"
+                        android:textColor="@color/white"
+                        android:textColorHint="#64748B"
+                        android:textSize="16sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_send_otp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="16dp"
+                        android:backgroundTint="#0EA5E9"
+                        android:text="Continue with Phone"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:elevation="2dp" />
+
+                </LinearLayout>
+
+                <!-- STEP 2: GOOGLE PHONE NUMBER CONFIRMATION (Required for VoIP Calling) -->
+                <LinearLayout
+                    android:id="@+id/layout_step_google_phone"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="24dp"
-                    android:backgroundTint="#0EA5E9"
-                    android:text="Send Verification Code"
-                    android:textColor="@color/white"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="14dp"
-                    app:elevation="2dp" />
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="One Last Step"
+                        android:textColor="#38BDF8"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:id="@+id/text_google_welcome_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Set Calling Number"
+                        android:textColor="@color/white"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/text_google_welcome_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Enter your phone number to enable WebRTC audio calling and receive calls."
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <EditText
+                        android:id="@+id/edit_google_phone_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="20dp"
+                        android:background="@drawable/bg_auth_input"
+                        android:drawableStart="@drawable/ic_call"
+                        android:drawablePadding="12dp"
+                        android:drawableTint="#38BDF8"
+                        android:hint="+1 (555) 000-0000"
+                        android:inputType="phone"
+                        android:paddingHorizontal="16dp"
+                        android:textColor="@color/white"
+                        android:textColorHint="#64748B"
+                        android:textSize="16sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_complete_google_phone"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="20dp"
+                        android:backgroundTint="#0EA5E9"
+                        android:text="Complete Setup"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:elevation="2dp" />
+
+                </LinearLayout>
+
+                <!-- STEP 3: OTP VERIFICATION -->
+                <LinearLayout
+                    android:id="@+id/layout_step_otp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Verification"
+                        android:textColor="#38BDF8"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Enter OTP Code"
+                        android:textColor="@color/white"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/text_otp_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Enter the 4-digit code sent to your phone."
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp" />
+
+                    <EditText
+                        android:id="@+id/edit_otp_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="24dp"
+                        android:background="@drawable/bg_auth_input"
+                        android:gravity="center"
+                        android:hint="• • • •"
+                        android:inputType="number"
+                        android:letterSpacing="0.4"
+                        android:maxLength="6"
+                        android:textColor="@color/white"
+                        android:textColorHint="#64748B"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_verify_otp"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="24dp"
+                        android:backgroundTint="#0EA5E9"
+                        android:text="Verify &amp; Continue"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:elevation="2dp" />
+
+                    <TextView
+                        android:id="@+id/btn_change_number"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="16dp"
+                        android:padding="8dp"
+                        android:text="Change phone number"
+                        android:textColor="#38BDF8"
+                        android:textSize="13sp" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
-            <!-- STEP 2: OTP VERIFICATION -->
-            <LinearLayout
-                android:id="@+id/layout_step_otp"
+            <!-- LOADING OVERLAY -->
+            <FrameLayout
+                android:id="@+id/layout_loading_overlay"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_height="match_parent"
+                android:background="#DD0F172A"
+                android:clickable="true"
+                android:focusable="true"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Verification"
-                    android:textColor="#38BDF8"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Enter OTP Code"
-                    android:textColor="@color/white"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/text_otp_subtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Enter the 4-digit code sent to your phone."
-                    android:textColor="#94A3B8"
-                    android:textSize="14sp" />
-
-                <EditText
-                    android:id="@+id/edit_otp_input"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="24dp"
-                    android:background="@drawable/bg_auth_input"
-                    android:gravity="center"
-                    android:hint="• • • •"
-                    android:inputType="number"
-                    android:letterSpacing="0.4"
-                    android:maxLength="6"
-                    android:textColor="@color/white"
-                    android:textColorHint="#64748B"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_verify_otp"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="24dp"
-                    android:backgroundTint="#0EA5E9"
-                    android:text="Verify &amp; Continue"
-                    android:textColor="@color/white"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    app:cornerRadius="14dp"
-                    app:elevation="2dp" />
-
-                <TextView
-                    android:id="@+id/btn_change_number"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:layout_marginTop="16dp"
-                    android:padding="8dp"
-                    android:text="Change phone number"
-                    android:textColor="#38BDF8"
-                    android:textSize="13sp" />
+                    android:gravity="center"
+                    android:orientation="vertical">
 
-            </LinearLayout>
+                    <ProgressBar
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:indeterminateTint="#38BDF8" />
 
-        </LinearLayout>
+                    <TextView
+                        android:id="@+id/text_loading_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Signing in with Google..."
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </FrameLayout>
+
+        </FrameLayout>
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

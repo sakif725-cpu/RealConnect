@@ -132,6 +132,13 @@ public class ProfileFragment extends Fragment {
             btnCancel.setOnClickListener(cv -> confirmDialog.dismiss());
             btnAction.setOnClickListener(cv -> {
                 confirmDialog.dismiss();
+                try {
+                    com.google.firebase.auth.FirebaseAuth.getInstance().signOut();
+                    com.google.android.gms.auth.api.signin.GoogleSignInOptions gso =
+                            new com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
+                                    com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).build();
+                    com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(requireContext(), gso).signOut();
+                } catch (Exception ignored) {}
                 sharedPreferences.edit().clear().apply();
                 Intent intent = new Intent(getActivity(), WelcomeActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

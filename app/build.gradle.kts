@@ -45,10 +45,12 @@ dependencies {
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)
 
-    // Firebase & Signaling
+    // Firebase & Signaling & Auth
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation(libs.firebase.analytics)
+    implementation(libs.play.services.auth)
     implementation(libs.gson)
 
     // Networking & API (for AI Services)
