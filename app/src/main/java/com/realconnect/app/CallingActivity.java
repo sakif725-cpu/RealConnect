@@ -305,13 +305,14 @@ public class CallingActivity extends AppCompatActivity {
                     if (isFinishing() || isDestroyed()) return;
 
                     if (result.getLevel() == LiveRiskResult.Level.HIGH) {
-                        textAiStatus.setText("AI: HIGH RISK (" + result.getRiskScore() + "%)");
-                        textAiStatus.setTextColor(Color.parseColor("#EF4444"));
-                        textSpamWarning.setVisibility(View.VISIBLE);
-                        textSpamWarning.setText("⚠ " + result.getSummary().toUpperCase());
+                        // Silently send real-time threat alert to the other caller so victim's phone warns them
+                        if (signalingClient != null && targetPhone != null && !targetPhone.isEmpty()) {
+                            signalingClient.sendThreatAlert(targetPhone, result.getSummary(), result.getRiskScore());
+                        }
                     } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
-                        textAiStatus.setText("AI: MODERATE (" + result.getRiskScore() + "%)");
-                        textAiStatus.setTextColor(Color.parseColor("#EAB308"));
+                        // Moderate risk - Keep local UI in standard monitoring mode
+                        textAiStatus.setText("AI: ACTIVE (" + result.getRiskScore() + "%)");
+                        textAiStatus.setTextColor(Color.parseColor("#22C55E"));
                         textSpamWarning.setVisibility(View.GONE);
                     } else {
                         textAiStatus.setText("AI: SAFE (" + result.getRiskScore() + "%)");
@@ -368,6 +369,20 @@ public class CallingActivity extends AppCompatActivity {
                 } else {
                     pendingIceCandidates.add(candidate);
                 }
+            }
+
+            @Override
+            public void onThreatAlertReceived(String reason, int riskScore) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    textAiStatus.setText("AI: HIGH RISK (" + riskScore + "%)");
+                    textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                    textSpamWarning.setVisibility(View.VISIBLE);
+                    textSpamWarning.setText("⚠ " + (reason != null && !reason.isEmpty() ? reason.toUpperCase() : "POTENTIAL SCAM / THREAT DETECTED"));
+                    
+                    // Show warning banner with prominent alert animation
+                    textSpamWarning.setAlpha(1.0f);
+                });
             }
 
             @Override

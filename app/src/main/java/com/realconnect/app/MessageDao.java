@@ -43,6 +43,9 @@ public interface MessageDao {
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND isRead = 0")
     void markChatAsRead(String chatId);
 
+    @Query("SELECT * FROM messages WHERE id = :messageId LIMIT 1")
+    Message getMessageById(String messageId);
+
     @Query("DELETE FROM messages WHERE chatId = :chatId")
     void deleteChat(String chatId);
 

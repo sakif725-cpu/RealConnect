@@ -334,6 +334,8 @@ public class ChatActivity extends AppCompatActivity {
 
         // 4. Delete Message
         actionDelete.setOnClickListener(v -> {
+            floatingDialog.dismiss();
+
             android.app.Dialog confirmDialog = new android.app.Dialog(this);
             confirmDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
             View confirmView = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_confirm_action, null);

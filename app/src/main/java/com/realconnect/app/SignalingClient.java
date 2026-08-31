@@ -27,6 +27,7 @@ public class SignalingClient {
         default void onRemoteOfferReceived(String callerPhone, SessionDescription description) {}
         default void onRemoteAnswerReceived(SessionDescription description) {}
         default void onRemoteIceCandidateReceived(IceCandidate candidate) {}
+        default void onThreatAlertReceived(String reason, int riskScore) {}
         default void onCallEnded() {}
     }
 
@@ -93,6 +94,16 @@ public class SignalingClient {
         dbRef.child(cleanTarget).child("candidates").push().setValue(gson.toJson(new CandidatePayload(candidate)));
     }
 
+    public void sendThreatAlert(String targetPhone, String reason, int riskScore) {
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        if (cleanTarget.isEmpty()) return;
+        Map<String, Object> alertMap = new HashMap<>();
+        alertMap.put("reason", reason);
+        alertMap.put("score", riskScore);
+        alertMap.put("timestamp", System.currentTimeMillis());
+        dbRef.child(cleanTarget).child("threat_alert").setValue(alertMap);
+    }
+
     public void endCall(String targetPhone) {
         String cleanTarget = ChatRepository.cleanPhone(targetPhone);
         if (!cleanTarget.isEmpty()) {
@@ -101,6 +112,7 @@ public class SignalingClient {
             updates.put("offer", null);
             updates.put("caller", null);
             updates.put("answer", null);
+            updates.put("threat_alert", null);
             dbRef.child(cleanTarget).updateChildren(updates);
         }
         dbRef.child(selfPhone).removeValue();
@@ -129,6 +141,17 @@ public class SignalingClient {
                         callback.onCallEnded();
                         dbRef.child(selfPhone).removeValue();
                         return;
+                    }
+
+                    if (snapshot.hasChild("threat_alert")) {
+                        DataSnapshot alertSnap = snapshot.child("threat_alert");
+                        String reason = alertSnap.child("reason").getValue(String.class);
+                        Long scoreVal = alertSnap.child("score").getValue(Long.class);
+                        int score = scoreVal != null ? scoreVal.intValue() : 90;
+                        dbRef.child(selfPhone).child("threat_alert").removeValue();
+                        if (reason != null) {
+                            callback.onThreatAlertReceived(reason, score);
+                        }
                     }
 
                     if (snapshot.hasChild("offer") && snapshot.hasChild("caller")) {

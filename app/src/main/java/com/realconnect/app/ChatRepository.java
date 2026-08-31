@@ -192,12 +192,28 @@ public class ChatRepository {
     }
 
     public void deleteChat(String chatId) {
+        if (chatId == null || chatId.isEmpty()) return;
         messageDao.deleteChat(chatId);
+        dbChats.child(chatId).removeValue();
+        notifyGlobalListeners(null);
+    }
+
+    public void deleteMessage(String chatId, String messageId) {
+        if (messageId == null || messageId.isEmpty()) return;
+        messageDao.deleteMessage(messageId);
+        if (chatId != null && !chatId.isEmpty()) {
+            dbChats.child(chatId).child("messages").child(messageId).removeValue();
+        }
         notifyGlobalListeners(null);
     }
 
     public void deleteMessage(String messageId) {
+        if (messageId == null || messageId.isEmpty()) return;
+        Message msg = messageDao.getMessageById(messageId);
         messageDao.deleteMessage(messageId);
+        if (msg != null && msg.getChatId() != null && !msg.getChatId().isEmpty()) {
+            dbChats.child(msg.getChatId()).child("messages").child(messageId).removeValue();
+        }
         notifyGlobalListeners(null);
     }
 
@@ -298,7 +314,21 @@ public class ChatRepository {
             }
 
             @Override public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
-            @Override public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+            @Override
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
+                try {
+                    String messageId = snapshot.getKey();
+                    Message message = snapshot.getValue(Message.class);
+                    if (message != null && message.getId() != null) {
+                        messageDao.deleteMessage(message.getId());
+                    } else if (messageId != null) {
+                        messageDao.deleteMessage(messageId);
+                    }
+                    notifyGlobalListeners(null);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error handling removed message", e);
+                }
+            }
             @Override public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         };
