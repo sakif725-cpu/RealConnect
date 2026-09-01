@@ -68,32 +68,47 @@
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Phone Number Input -->
+            <!-- Phone Number Input (Locked for Standard / Non-Premium Users) -->
             <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/layout_profile_form_phone"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="14dp"
-                android:hint="Phone Number"
+                android:layout_marginBottom="4dp"
+                android:hint="13-Digit Calling ID"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
                 app:boxCornerRadiusTopStart="12dp"
-                app:boxStrokeColor="@color/colorPrimary"
+                app:boxStrokeColor="#94A3B8"
                 app:boxStrokeWidth="1.5dp"
-                app:boxStrokeWidthFocused="2dp"
-                app:hintTextColor="@color/colorPrimary"
+                app:endIconDrawable="@drawable/ic_privacy"
+                app:endIconMode="custom"
+                app:endIconTint="#EAB308"
                 app:startIconDrawable="@drawable/ic_call"
-                app:startIconTint="@color/colorPrimary">
+                app:startIconTint="#64748B">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/edit_profile_form_phone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="false"
                     android:inputType="phone"
-                    android:textColor="#0F172A"
+                    android:textColor="#475569"
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Premium Lock Badge Note -->
+            <TextView
+                android:id="@+id/text_premium_phone_note"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:drawablePadding="6dp"
+                android:text="🔒 Permanent ID (Requires Premium to edit)"
+                android:textColor="#64748B"
+                android:textSize="11sp" />
 
             <!-- Email Input -->
             <com.google.android.material.textfield.TextInputLayout

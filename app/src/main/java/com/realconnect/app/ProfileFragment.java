@@ -224,16 +224,50 @@ public class ProfileFragment extends Fragment {
         com.google.android.material.textfield.TextInputEditText editEmail = dialogView.findViewById(R.id.edit_profile_form_email);
         View btnCancel = dialogView.findViewById(R.id.btn_profile_form_cancel);
         com.google.android.material.button.MaterialButton btnSubmit = dialogView.findViewById(R.id.btn_profile_form_submit);
+        View phoneLayout = dialogView.findViewById(R.id.layout_profile_form_phone);
+        TextView textPremiumNote = dialogView.findViewById(R.id.text_premium_phone_note);
+
+        boolean isPremium = sharedPreferences.getBoolean("is_premium", false);
+        String currentPhone = profilePhone.getText() != null ? profilePhone.getText().toString() : "";
 
         // Pre-fill with current values
         editName.setText(profileName.getText());
-        editPhone.setText(profilePhone.getText());
+        editPhone.setText(currentPhone);
         editEmail.setText(profileEmail.getText());
+
+        if (!isPremium) {
+            editPhone.setFocusable(false);
+            editPhone.setClickable(true);
+            View.OnClickListener premiumPromptListener = v -> {
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(requireContext());
+                builder.setTitle("👑 RealConnect Premium");
+                builder.setMessage("Your 13-digit calling ID (" + currentPhone + ") is permanently allocated to your account to prevent collision.\n\nCustom vanity phone numbers require a RealConnect Premium subscription.");
+                builder.setPositiveButton("Upgrade to Premium", (dialog, which) -> {
+                    Toast.makeText(getContext(), "RealConnect Premium features coming soon!", Toast.LENGTH_SHORT).show();
+                });
+                builder.setNegativeButton("OK", null);
+                builder.show();
+            };
+
+            editPhone.setOnClickListener(premiumPromptListener);
+            if (phoneLayout != null) {
+                phoneLayout.setOnClickListener(premiumPromptListener);
+            }
+            if (textPremiumNote != null) {
+                textPremiumNote.setOnClickListener(premiumPromptListener);
+            }
+        } else {
+            editPhone.setFocusableInTouchMode(true);
+            if (textPremiumNote != null) {
+                textPremiumNote.setText("👑 Premium Member: Custom vanity ID unlocked");
+                textPremiumNote.setTextColor(android.graphics.Color.parseColor("#EAB308"));
+            }
+        }
 
         btnCancel.setOnClickListener(v -> formDialog.dismiss());
         btnSubmit.setOnClickListener(v -> {
             String name = editName.getText() != null ? editName.getText().toString().trim() : "";
-            String phone = editPhone.getText() != null ? editPhone.getText().toString().trim() : "";
+            String phone = isPremium && editPhone.getText() != null ? editPhone.getText().toString().trim() : currentPhone;
             String email = editEmail.getText() != null ? editEmail.getText().toString().trim() : "";
 
             if (name.isEmpty() || phone.isEmpty() || email.isEmpty()) {
@@ -248,6 +282,17 @@ public class ProfileFragment extends Fragment {
                         .putString(KEY_PHONE, phone)
                         .putString(KEY_EMAIL, email)
                         .apply();
+
+                // Sync update to Firebase Realtime Database
+                String clean = ChatRepository.cleanPhone(phone);
+                if (!clean.isEmpty()) {
+                    java.util.Map<String, Object> updates = new java.util.HashMap<>();
+                    updates.put("name", name);
+                    updates.put("email", email);
+                    updates.put("phone", clean);
+                    updates.put("updatedAt", System.currentTimeMillis());
+                    com.google.firebase.database.FirebaseDatabase.getInstance().getReference("users").child(clean).updateChildren(updates);
+                }
 
                 formDialog.dismiss();
                 Toast.makeText(getContext(), R.string.msg_profile_updated, Toast.LENGTH_SHORT).show();
