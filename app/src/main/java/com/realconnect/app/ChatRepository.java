@@ -50,11 +50,7 @@ public class ChatRepository {
 
     public static String cleanPhone(String phone) {
         if (phone == null) return "";
-        String digits = phone.replaceAll("[^0-9]", "");
-        if (digits.length() >= 10) {
-            return digits.substring(digits.length() - 10);
-        }
-        return digits;
+        return phone.replaceAll("[^0-9]", "");
     }
 
     public static String getChatId(String phoneA, String phoneB) {

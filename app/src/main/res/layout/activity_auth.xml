@@ -63,7 +63,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Sign In"
+                        android:text="1-Tap Sign In"
                         android:textColor="@color/white"
                         android:textSize="24sp"
                         android:textStyle="bold" />
@@ -72,7 +72,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Sign in with your Google account or phone number to start secure AI-guarded calling."
+                        android:text="Sign in to receive your unique 13-digit virtual calling ID with zero manual configuration."
                         android:textColor="#94A3B8"
                         android:textSize="14sp"
                         android:lineSpacingExtra="2dp" />
@@ -96,11 +96,27 @@
                         app:iconSize="22dp"
                         app:iconTint="@null" />
 
+                    <!-- INSTANT AUTO-ASSIGN BUTTON (DEMO / GUEST) -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_instant_access"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="12dp"
+                        android:backgroundTint="#1E3A8A"
+                        android:text="⚡ 1-Tap Auto-Assign 13-Digit ID"
+                        android:textColor="#93C5FD"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="14dp"
+                        app:elevation="1dp"
+                        app:strokeColor="#3B82F6"
+                        app:strokeWidth="1dp" />
+
                     <!-- DIVIDER WITH 'OR' -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginVertical="20dp"
+                        android:layout_marginVertical="16dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
@@ -114,9 +130,9 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:paddingHorizontal="16dp"
-                            android:text="OR"
+                            android:text="OR ENTER CUSTOM NUMBER"
                             android:textColor="#64748B"
-                            android:textSize="12sp"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
 
                         <View
@@ -134,8 +150,9 @@
                         android:drawableStart="@drawable/ic_call"
                         android:drawablePadding="12dp"
                         android:drawableTint="#38BDF8"
-                        android:hint="+1 (555) 000-0000"
+                        android:hint="9100000000001"
                         android:inputType="phone"
+                        android:maxLength="15"
                         android:paddingHorizontal="16dp"
                         android:textColor="@color/white"
                         android:textColorHint="#64748B"
@@ -144,87 +161,19 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_send_otp"
                         android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="16dp"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="12dp"
                         android:backgroundTint="#0EA5E9"
-                        android:text="Continue with Phone"
+                        android:text="Continue with Number"
                         android:textColor="@color/white"
-                        android:textSize="15sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         app:cornerRadius="14dp"
                         app:elevation="2dp" />
 
                 </LinearLayout>
 
-                <!-- STEP 2: GOOGLE PHONE NUMBER CONFIRMATION (Required for VoIP Calling) -->
-                <LinearLayout
-                    android:id="@+id/layout_step_google_phone"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="One Last Step"
-                        android:textColor="#38BDF8"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05" />
-
-                    <TextView
-                        android:id="@+id/text_google_welcome_title"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Set Calling Number"
-                        android:textColor="@color/white"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/text_google_welcome_subtitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Enter your phone number to enable WebRTC audio calling and receive calls."
-                        android:textColor="#94A3B8"
-                        android:textSize="14sp"
-                        android:lineSpacingExtra="2dp" />
-
-                    <EditText
-                        android:id="@+id/edit_google_phone_input"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="20dp"
-                        android:background="@drawable/bg_auth_input"
-                        android:drawableStart="@drawable/ic_call"
-                        android:drawablePadding="12dp"
-                        android:drawableTint="#38BDF8"
-                        android:hint="+1 (555) 000-0000"
-                        android:inputType="phone"
-                        android:paddingHorizontal="16dp"
-                        android:textColor="@color/white"
-                        android:textColorHint="#64748B"
-                        android:textSize="16sp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_complete_google_phone"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="20dp"
-                        android:backgroundTint="#0EA5E9"
-                        android:text="Complete Setup"
-                        android:textColor="@color/white"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="14dp"
-                        app:elevation="2dp" />
-
-                </LinearLayout>
-
-                <!-- STEP 3: OTP VERIFICATION -->
+                <!-- STEP 2: OTP VERIFICATION -->
                 <LinearLayout
                     android:id="@+id/layout_step_otp"
                     android:layout_width="match_parent"
@@ -295,7 +244,7 @@
                         android:layout_gravity="center"
                         android:layout_marginTop="16dp"
                         android:padding="8dp"
-                        android:text="Change phone number"
+                        android:text="Change number"
                         android:textColor="#38BDF8"
                         android:textSize="13sp" />
 
@@ -330,7 +279,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="Signing in with Google..."
+                        android:text="Assigning unique 13-digit calling ID..."
                         android:textColor="@color/white"
                         android:textSize="15sp"
                         android:textStyle="bold" />

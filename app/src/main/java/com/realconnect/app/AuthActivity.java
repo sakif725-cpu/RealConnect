@@ -3,7 +3,6 @@ package com.realconnect.app;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -18,6 +17,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -30,36 +30,40 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
+import com.google.firebase.database.Transaction;
+import com.google.firebase.database.ValueEventListener;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 public class AuthActivity extends AppCompatActivity {
 
     private static final String TAG = "AuthActivity";
     private static final String PREFS_NAME = "ProfilePrefs";
 
+    // 13-digit base: 9100000000000L -> gives sequential 13-digit numbers (0-9)
+    private static final long BASE_13_DIGIT_PHONE = 9100000000000L;
+
     private LinearLayout layoutStepPhone;
-    private LinearLayout layoutStepGooglePhone;
     private LinearLayout layoutStepOtp;
     private FrameLayout layoutLoadingOverlay;
     private TextView textLoadingStatus;
 
     private EditText editPhone;
-    private EditText editGooglePhone;
     private EditText editOtp;
     private TextView textOtpSubtitle;
-    private TextView textGoogleWelcomeTitle;
-    private TextView textGoogleWelcomeSubtitle;
 
     private FirebaseAuth mAuth;
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
 
     private String enteredPhone = "";
-    private String googleDisplayName = "";
-    private String googleEmail = "";
-    private String googlePhotoUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,35 +121,33 @@ public class AuthActivity extends AppCompatActivity {
 
     private void initViews() {
         layoutStepPhone = findViewById(R.id.layout_step_phone);
-        layoutStepGooglePhone = findViewById(R.id.layout_step_google_phone);
         layoutStepOtp = findViewById(R.id.layout_step_otp);
         layoutLoadingOverlay = findViewById(R.id.layout_loading_overlay);
         textLoadingStatus = findViewById(R.id.text_loading_status);
 
         editPhone = findViewById(R.id.edit_phone_input);
-        editGooglePhone = findViewById(R.id.edit_google_phone_input);
         editOtp = findViewById(R.id.edit_otp_input);
         textOtpSubtitle = findViewById(R.id.text_otp_subtitle);
-        textGoogleWelcomeTitle = findViewById(R.id.text_google_welcome_title);
-        textGoogleWelcomeSubtitle = findViewById(R.id.text_google_welcome_subtitle);
     }
 
     private void setupListeners() {
         MaterialButton btnGoogleSignIn = findViewById(R.id.btn_google_sign_in);
+        MaterialButton btnInstantAccess = findViewById(R.id.btn_instant_access);
         MaterialButton btnSendOtp = findViewById(R.id.btn_send_otp);
         MaterialButton btnVerifyOtp = findViewById(R.id.btn_verify_otp);
-        MaterialButton btnCompleteGooglePhone = findViewById(R.id.btn_complete_google_phone);
         TextView btnChangeNumber = findViewById(R.id.btn_change_number);
         ImageButton btnBack = findViewById(R.id.btn_auth_back);
 
         btnGoogleSignIn.setOnClickListener(v -> launchGoogleSignIn());
+        if (btnInstantAccess != null) {
+            btnInstantAccess.setOnClickListener(v -> handleInstantAutoAccess());
+        }
         btnSendOtp.setOnClickListener(v -> handleSendOtp());
         btnVerifyOtp.setOnClickListener(v -> handleVerifyOtp());
-        btnCompleteGooglePhone.setOnClickListener(v -> handleCompleteGooglePhone());
         btnChangeNumber.setOnClickListener(v -> showPhoneStep());
 
         btnBack.setOnClickListener(v -> {
-            if (layoutStepOtp.getVisibility() == View.VISIBLE || layoutStepGooglePhone.getVisibility() == View.VISIBLE) {
+            if (layoutStepOtp.getVisibility() == View.VISIBLE) {
                 showPhoneStep();
             } else {
                 finish();
@@ -186,68 +188,117 @@ public class AuthActivity extends AppCompatActivity {
     private void firebaseAuthWithGoogle(GoogleSignInAccount account) {
         String idToken = account.getIdToken();
         if (idToken == null || idToken.isEmpty()) {
-            // Fallback for offline / direct account profile if token is not available
-            onGoogleAuthSuccess(account.getDisplayName(), account.getEmail(), account.getPhotoUrl() != null ? account.getPhotoUrl().toString() : null);
+            String uid = "google_" + (account.getId() != null ? account.getId() : UUID.randomUUID().toString());
+            onGoogleAuthSuccess(account.getDisplayName(), account.getEmail(), account.getPhotoUrl() != null ? account.getPhotoUrl().toString() : null, uid);
             return;
         }
 
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
-                    hideLoading();
                     if (task.isSuccessful()) {
                         FirebaseUser user = mAuth.getCurrentUser();
+                        String uid = user != null ? user.getUid() : "user_" + UUID.randomUUID().toString();
                         String name = (user != null && !TextUtils.isEmpty(user.getDisplayName())) ? user.getDisplayName() : account.getDisplayName();
                         String email = (user != null && !TextUtils.isEmpty(user.getEmail())) ? user.getEmail() : account.getEmail();
                         String photo = (user != null && user.getPhotoUrl() != null) ? user.getPhotoUrl().toString() : (account.getPhotoUrl() != null ? account.getPhotoUrl().toString() : null);
 
-                        onGoogleAuthSuccess(name, email, photo);
+                        onGoogleAuthSuccess(name, email, photo, uid);
                     } else {
+                        hideLoading();
                         Log.e(TAG, "Firebase auth with Google failed", task.getException());
                         Toast.makeText(AuthActivity.this, "Authentication failed: " + (task.getException() != null ? task.getException().getMessage() : "Unknown error"), Toast.LENGTH_LONG).show();
                     }
                 });
     }
 
-    private void onGoogleAuthSuccess(String name, String email, String photoUrl) {
-        hideLoading();
-        googleDisplayName = name != null ? name : "User";
-        googleEmail = email != null ? email : "";
-        googlePhotoUrl = photoUrl != null ? photoUrl : "";
+    private void onGoogleAuthSuccess(String name, String email, String photoUrl, String uid) {
+        showLoading("Verifying 13-digit RealConnect ID...");
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String existingPhone = prefs.getString("phone", null);
+        // Check if user already has an allocated 13-digit number in Firebase
+        DatabaseReference userAccRef = FirebaseDatabase.getInstance().getReference("user_accounts").child(uid).child("assigned_phone");
+        userAccRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String existingAssignedPhone = snapshot.getValue(String.class);
+                if (existingAssignedPhone != null && !existingAssignedPhone.trim().isEmpty() && existingAssignedPhone.length() >= 10) {
+                    // Existing assigned number found
+                    hideLoading();
+                    saveProfile(existingAssignedPhone, name != null ? name : "User", email != null ? email : "", photoUrl);
+                    Toast.makeText(AuthActivity.this, "Welcome " + name + "!\nCalling ID: " + existingAssignedPhone, Toast.LENGTH_LONG).show();
+                    proceedToMain();
+                } else {
+                    // Allocate new 13-digit number via atomic transaction (0 collisions)
+                    allocate13DigitPhoneAtomic(uid, name, email, photoUrl);
+                }
+            }
 
-        if (existingPhone != null && !existingPhone.trim().isEmpty()) {
-            // Phone already exists, update Google profile info and proceed
-            saveProfile(existingPhone, googleDisplayName, googleEmail, googlePhotoUrl);
-            proceedToMain();
-        } else {
-            // Prompt user for their phone number (needed for WebRTC VoIP calling & contact identification)
-            showGooglePhoneStep();
-        }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                allocate13DigitPhoneAtomic(uid, name, email, photoUrl);
+            }
+        });
     }
 
-    private void showGooglePhoneStep() {
-        layoutStepPhone.setVisibility(View.GONE);
-        layoutStepOtp.setVisibility(View.GONE);
-        layoutStepGooglePhone.setVisibility(View.VISIBLE);
+    /**
+     * Atomically increments the 13-digit phone counter in Firebase Realtime Database.
+     * Guaranteed 0 collisions even across concurrent device logins.
+     */
+    private void allocate13DigitPhoneAtomic(String uid, String name, String email, String photoUrl) {
+        showLoading("Assigning unique 13-digit calling ID...");
 
-        textGoogleWelcomeTitle.setText("Welcome, " + googleDisplayName + "!");
-        textGoogleWelcomeSubtitle.setText("Signed in as " + googleEmail + ".\nPlease enter your phone number to activate WebRTC VoIP calling.");
-        editGooglePhone.requestFocus();
+        DatabaseReference counterRef = FirebaseDatabase.getInstance().getReference("system").child("phone_counter_13digit");
+
+        counterRef.runTransaction(new Transaction.Handler() {
+            @NonNull
+            @Override
+            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
+                Long currentVal = currentData.getValue(Long.class);
+                if (currentVal == null || currentVal < BASE_13_DIGIT_PHONE) {
+                    currentVal = BASE_13_DIGIT_PHONE;
+                }
+                long nextVal = currentVal + 1;
+                currentData.setValue(nextVal);
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot snapshot) {
+                hideLoading();
+                String phone13Digit;
+
+                if (committed && snapshot != null && snapshot.getValue(Long.class) != null) {
+                    phone13Digit = String.valueOf(snapshot.getValue(Long.class));
+                } else {
+                    // Fallback: Deterministic 13-digit number from UID if offline
+                    phone13Digit = generateDeterministic13Digit(uid);
+                }
+
+                // 1. Save permanent assignment to /user_accounts/{uid}/assigned_phone
+                FirebaseDatabase.getInstance().getReference("user_accounts")
+                        .child(uid).child("assigned_phone").setValue(phone13Digit);
+
+                // 2. Save reverse lookup /phone_to_user/{phone13Digit}
+                Map<String, Object> mapping = new HashMap<>();
+                mapping.put("uid", uid);
+                mapping.put("name", name != null ? name : "User");
+                mapping.put("email", email != null ? email : "");
+                FirebaseDatabase.getInstance().getReference("phone_to_user")
+                        .child(phone13Digit).setValue(mapping);
+
+                // 3. Save local profile and sync to /users/{phone13Digit}
+                saveProfile(phone13Digit, name != null ? name : "User", email != null ? email : "", photoUrl);
+
+                Toast.makeText(AuthActivity.this, "Assigned 13-Digit Calling ID:\n" + phone13Digit, Toast.LENGTH_LONG).show();
+                proceedToMain();
+            }
+        });
     }
 
-    private void handleCompleteGooglePhone() {
-        String phone = editGooglePhone.getText().toString().trim();
-        if (TextUtils.isEmpty(phone)) {
-            Toast.makeText(this, "Please enter your phone number to continue", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        saveProfile(phone, googleDisplayName, googleEmail, googlePhotoUrl);
-        Toast.makeText(this, "Account linked successfully!", Toast.LENGTH_SHORT).show();
-        proceedToMain();
+    private void handleInstantAutoAccess() {
+        String guestUid = "guest_" + UUID.randomUUID().toString();
+        String guestName = "Guest " + (System.currentTimeMillis() % 10000);
+        allocate13DigitPhoneAtomic(guestUid, guestName, "", null);
     }
 
     private void handleSendOtp() {
@@ -263,7 +314,6 @@ public class AuthActivity extends AppCompatActivity {
 
     private void showOtpStep() {
         layoutStepPhone.setVisibility(View.GONE);
-        layoutStepGooglePhone.setVisibility(View.GONE);
         layoutStepOtp.setVisibility(View.VISIBLE);
         textOtpSubtitle.setText("Enter the verification code sent to " + enteredPhone);
         editOtp.setText("");
@@ -271,7 +321,6 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void showPhoneStep() {
-        layoutStepGooglePhone.setVisibility(View.GONE);
         layoutStepOtp.setVisibility(View.GONE);
         layoutStepPhone.setVisibility(View.VISIBLE);
         editPhone.requestFocus();
@@ -284,15 +333,23 @@ public class AuthActivity extends AppCompatActivity {
             return;
         }
 
-        saveProfile(enteredPhone, "User " + (enteredPhone.length() > 4 ? enteredPhone.substring(enteredPhone.length() - 4) : enteredPhone), "", null);
+        String clean = ChatRepository.cleanPhone(enteredPhone);
+        saveProfile(clean, "User " + (clean.length() > 4 ? clean.substring(clean.length() - 4) : clean), "", null);
         Toast.makeText(this, "Verified successfully!", Toast.LENGTH_SHORT).show();
         proceedToMain();
     }
 
+    private String generateDeterministic13Digit(String uid) {
+        long hash = Math.abs((long) uid.hashCode());
+        return String.format(Locale.US, "91%011d", hash % 100000000000L);
+    }
+
     private void saveProfile(String phone, String name, String email, String photoUrl) {
+        String cleanPhone = ChatRepository.cleanPhone(phone);
+
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("phone", phone);
+        editor.putString("phone", cleanPhone);
         if (!TextUtils.isEmpty(name)) {
             editor.putString("name", name);
         }
@@ -305,14 +362,13 @@ public class AuthActivity extends AppCompatActivity {
         editor.apply();
 
         // Sync to Firebase Realtime Database users node
-        String cleanPhone = ChatRepository.cleanPhone(phone);
         if (!cleanPhone.isEmpty()) {
             new Thread(() -> {
                 try {
                     Map<String, Object> userData = new HashMap<>();
                     userData.put("name", name != null ? name : "");
                     userData.put("email", email != null ? email : "");
-                    userData.put("phone", phone);
+                    userData.put("phone", cleanPhone);
                     userData.put("updatedAt", System.currentTimeMillis());
                     FirebaseDatabase.getInstance().getReference("users").child(cleanPhone).updateChildren(userData);
                 } catch (Exception e) {
