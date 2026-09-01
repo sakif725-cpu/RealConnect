@@ -27,6 +27,7 @@ public class SignalingClient {
         default void onRemoteOfferReceived(String callerPhone, SessionDescription description) {}
         default void onRemoteAnswerReceived(SessionDescription description) {}
         default void onRemoteIceCandidateReceived(IceCandidate candidate) {}
+        default void onRemoteVideoStateChanged(boolean isVideoOn) {}
         default void onThreatAlertReceived(String reason, int riskScore) {}
         default void onCallEnded() {}
     }
@@ -104,6 +105,12 @@ public class SignalingClient {
         dbRef.child(cleanTarget).child("threat_alert").setValue(alertMap);
     }
 
+    public void sendVideoState(String targetPhone, boolean isVideoOn) {
+        String cleanTarget = ChatRepository.cleanPhone(targetPhone);
+        if (cleanTarget.isEmpty()) return;
+        dbRef.child(cleanTarget).child("video_state").setValue(isVideoOn);
+    }
+
     public void endCall(String targetPhone) {
         String cleanTarget = ChatRepository.cleanPhone(targetPhone);
         if (!cleanTarget.isEmpty()) {
@@ -113,6 +120,7 @@ public class SignalingClient {
             updates.put("caller", null);
             updates.put("answer", null);
             updates.put("threat_alert", null);
+            updates.put("video_state", null);
             dbRef.child(cleanTarget).updateChildren(updates);
         }
         dbRef.child(selfPhone).removeValue();
@@ -178,6 +186,13 @@ public class SignalingClient {
                         dbRef.child(selfPhone).child("answer").removeValue();
                         if (data != null) {
                             callback.onRemoteAnswerReceived(gson.fromJson(data, SdpPayload.class).toSdp());
+                        }
+                    }
+
+                    if (snapshot.hasChild("video_state")) {
+                        Boolean isVideo = snapshot.child("video_state").getValue(Boolean.class);
+                        if (isVideo != null) {
+                            callback.onRemoteVideoStateChanged(isVideo);
                         }
                     }
                 } catch (Exception e) {

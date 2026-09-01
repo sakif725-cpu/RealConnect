@@ -5,10 +5,28 @@
     android:id="@+id/root_calling_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A"
+    android:background="@android:color/transparent"
     android:clickable="true"
     android:focusable="true"
     tools:context=".CallingActivity">
+
+    <!-- SOLID VOICE MODE BACKGROUND (Hidden in video mode so SurfaceView is crystal clear) -->
+    <View
+        android:id="@+id/voice_mode_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0F172A" />
+
+    <!-- BACKGROUND LOOPING MP4 ANIMATION (For Outgoing & Connected Audio Calls) -->
+    <VideoView
+        android:id="@+id/video_view_audio_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- FULLSCREEN REMOTE VIDEO RENDERER -->
     <org.webrtc.SurfaceViewRenderer
@@ -21,23 +39,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- VIDEO OVERLAY GRADIENT (Top & Bottom for readability) -->
-    <View
-        android:id="@+id/video_overlay_gradient_top"
-        android:layout_width="match_parent"
-        android:layout_height="220dp"
-        android:background="@drawable/bg_calling_gradient"
-        android:alpha="0.75"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <View
-        android:id="@+id/video_overlay_gradient_bottom"
-        android:layout_width="match_parent"
-        android:layout_height="280dp"
-        android:background="#DD0F172A"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent" />
 
     <!-- Top Glow / Shadow (Voice Mode) -->
     <View
@@ -58,9 +59,11 @@
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true"
+        app:cardPreventCornerOverlap="false"
+        app:cardUseCompatPadding="false"
         app:cardBackgroundColor="#1E293B"
         app:cardCornerRadius="16dp"
-        app:cardElevation="20dp"
+        app:cardElevation="24dp"
         app:strokeColor="#60A5FA"
         app:strokeWidth="2dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -69,7 +72,8 @@
         <org.webrtc.SurfaceViewRenderer
             android:id="@+id/pip_video_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:visibility="gone" />
     </com.google.android.material.card.MaterialCardView>
 
     <!-- Minimize Call Button -->
@@ -136,9 +140,12 @@
         android:layout_height="140dp"
         android:layout_marginTop="40dp"
         app:cardCornerRadius="70dp"
-        app:cardElevation="20dp"
+        app:cardPreventCornerOverlap="false"
+        app:cardUseCompatPadding="false"
+        app:cardElevation="0dp"
         app:strokeWidth="2dp"
         app:strokeColor="#33FFFFFF"
+        app:cardBackgroundColor="@android:color/transparent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/ai_status_badge">
@@ -147,7 +154,6 @@
             android:id="@+id/img_avatar_calling"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#1E293B"
             android:scaleType="centerCrop"
             android:contentDescription="@string/desc_caller_avatar" />
     </com.google.android.material.card.MaterialCardView>

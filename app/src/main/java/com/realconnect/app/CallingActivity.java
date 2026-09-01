@@ -55,16 +55,18 @@ public class CallingActivity extends AppCompatActivity {
     private SurfaceViewRenderer pipVideoView;
     private View cardPipVideo;
     private View cardAvatar;
-    private View videoOverlayTop;
-    private View videoOverlayBottom;
     private View voiceBgGlow;
+    private View voiceModeBackground;
     private View rootCallingLayout;
+    private android.widget.VideoView videoViewAudioBg;
 
     private int seconds = 0;
     private boolean running = false;
     private boolean isConnected = false;
     private boolean isVideoCall = false;
     private boolean isVideoEnabled = false; // Camera disabled by default
+    private boolean isRemoteVideoEnabled = false;
+    private boolean isCapturing = false;
     private boolean isFrontCamera = true;
     private boolean areControlsVisible = true;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -148,14 +150,14 @@ public class CallingActivity extends AppCompatActivity {
         aiStatusBadge = findViewById(R.id.ai_status_badge);
         callerInfoContainer = findViewById(R.id.caller_info_container);
 
-        // Video views
+        // Video views & backgrounds
         fullscreenVideoView = findViewById(R.id.fullscreen_video_view);
         pipVideoView = findViewById(R.id.pip_video_view);
         cardPipVideo = findViewById(R.id.card_pip_video);
         cardAvatar = findViewById(R.id.card_avatar);
-        videoOverlayTop = findViewById(R.id.video_overlay_gradient_top);
-        videoOverlayBottom = findViewById(R.id.video_overlay_gradient_bottom);
         voiceBgGlow = findViewById(R.id.voice_bg_glow);
+        voiceModeBackground = findViewById(R.id.voice_mode_background);
+        videoViewAudioBg = findViewById(R.id.video_view_audio_bg);
 
         initEglAndVideoRenderers();
         setupDraggablePip();
@@ -192,6 +194,7 @@ public class CallingActivity extends AppCompatActivity {
         if (isIncoming) {
             btnAcceptCall.setVisibility(View.VISIBLE);
             controlsContainer.setVisibility(View.GONE);
+            if (videoViewAudioBg != null) videoViewAudioBg.setVisibility(View.GONE);
             textCallTimer.setText("Incoming Call...");
             startRinging();
             
@@ -207,6 +210,7 @@ public class CallingActivity extends AppCompatActivity {
         } else {
             btnAcceptCall.setVisibility(View.GONE);
             controlsContainer.setVisibility(View.VISIBLE);
+            playAudioCallAnimation();
             textCallTimer.setText("Calling...");
             textAiStatus.setText("AI GUARD: STANDBY");
             
@@ -239,10 +243,13 @@ public class CallingActivity extends AppCompatActivity {
             pipVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
             pipVideoView.setZOrderMediaOverlay(true);
             pipVideoView.setEnableHardwareScaler(true);
+            pipVideoView.setVisibility(View.GONE);
 
             fullscreenVideoView.init(rootEglBase.getEglBaseContext(), null);
             fullscreenVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
+            fullscreenVideoView.setZOrderMediaOverlay(false);
             fullscreenVideoView.setEnableHardwareScaler(true);
+            fullscreenVideoView.setVisibility(View.GONE);
         } catch (Exception e) {
             Log.e(TAG, "Error initializing video renderers", e);
         }
@@ -310,12 +317,24 @@ public class CallingActivity extends AppCompatActivity {
     public void switchToVideoMode() {
         runOnUiThread(() -> {
             isVideoCall = true;
-            if (fullscreenVideoView != null) fullscreenVideoView.setVisibility(View.VISIBLE);
-            if (cardPipVideo != null && isVideoEnabled) cardPipVideo.setVisibility(View.VISIBLE);
-            if (videoOverlayTop != null) videoOverlayTop.setVisibility(View.VISIBLE);
-            if (videoOverlayBottom != null) videoOverlayBottom.setVisibility(View.VISIBLE);
+            pauseAudioCallAnimation();
+            if (voiceModeBackground != null) voiceModeBackground.setVisibility(View.GONE);
+            if (fullscreenVideoView != null) {
+                fullscreenVideoView.setVisibility(View.VISIBLE);
+                fullscreenVideoView.bringToFront();
+            }
             if (cardAvatar != null) cardAvatar.setVisibility(View.GONE);
             if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.GONE);
+            if (cardPipVideo != null && isVideoEnabled) {
+                cardPipVideo.setVisibility(View.VISIBLE);
+                if (pipVideoView != null) pipVideoView.setVisibility(View.VISIBLE);
+                cardPipVideo.bringToFront();
+            }
+            if (callerInfoContainer != null) callerInfoContainer.bringToFront();
+            if (controlsContainer != null) controlsContainer.bringToFront();
+            if (btnEndCall != null) btnEndCall.bringToFront();
+            if (btnMinimizeCall != null) btnMinimizeCall.bringToFront();
+            if (aiStatusBadge != null) aiStatusBadge.bringToFront();
             scheduleControlsAutoHide();
         });
     }
@@ -323,10 +342,11 @@ public class CallingActivity extends AppCompatActivity {
     public void switchToAudioMode() {
         runOnUiThread(() -> {
             isVideoCall = false;
+            playAudioCallAnimation();
+            if (voiceModeBackground != null) voiceModeBackground.setVisibility(View.VISIBLE);
             if (fullscreenVideoView != null) fullscreenVideoView.setVisibility(View.GONE);
             if (cardPipVideo != null) cardPipVideo.setVisibility(View.GONE);
-            if (videoOverlayTop != null) videoOverlayTop.setVisibility(View.GONE);
-            if (videoOverlayBottom != null) videoOverlayBottom.setVisibility(View.GONE);
+            if (pipVideoView != null) pipVideoView.setVisibility(View.GONE);
             if (cardAvatar != null) cardAvatar.setVisibility(View.VISIBLE);
             if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.VISIBLE);
             showControls();
@@ -336,7 +356,8 @@ public class CallingActivity extends AppCompatActivity {
     private void scheduleControlsAutoHide() {
         handler.removeCallbacks(hideControlsRunnable);
         if (isConnected) {
-            handler.postDelayed(hideControlsRunnable, 3000);
+            long delayMs = isVideoCall ? 3000L : 10000L;
+            handler.postDelayed(hideControlsRunnable, delayMs);
         }
     }
 
@@ -346,10 +367,6 @@ public class CallingActivity extends AppCompatActivity {
         animateFade(btnEndCall, 1.0f);
         animateFade(btnMinimizeCall, 1.0f);
         animateFade(aiStatusBadge, 1.0f);
-        if (isVideoCall) {
-            animateFade(videoOverlayTop, 0.75f);
-            animateFade(videoOverlayBottom, 1.0f);
-        }
         scheduleControlsAutoHide();
     }
 
@@ -360,8 +377,45 @@ public class CallingActivity extends AppCompatActivity {
         animateFade(btnEndCall, 0.0f);
         animateFade(btnMinimizeCall, 0.0f);
         animateFade(aiStatusBadge, 0.0f);
-        animateFade(videoOverlayTop, 0.0f);
-        animateFade(videoOverlayBottom, 0.0f);
+    }
+
+    private void playAudioCallAnimation() {
+        if (isVideoCall) return;
+        runOnUiThread(() -> {
+            try {
+                if (videoViewAudioBg != null) {
+                    videoViewAudioBg.setVisibility(View.VISIBLE);
+                    Uri animUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.audio_call_anim);
+                    videoViewAudioBg.setVideoURI(animUri);
+                    videoViewAudioBg.setOnPreparedListener(mp -> {
+                        mp.setLooping(true);
+                        mp.setVolume(0f, 0f); // Mute video audio so call voice is 100% clear
+                        videoViewAudioBg.start();
+                    });
+                    videoViewAudioBg.setOnErrorListener((mp, what, extra) -> {
+                        Log.e(TAG, "Audio call video animation error: " + what + ", " + extra);
+                        return true;
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error playing audio call animation", e);
+            }
+        });
+    }
+
+    private void pauseAudioCallAnimation() {
+        runOnUiThread(() -> {
+            try {
+                if (videoViewAudioBg != null) {
+                    if (videoViewAudioBg.isPlaying()) {
+                        videoViewAudioBg.pause();
+                    }
+                    videoViewAudioBg.setVisibility(View.GONE);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error pausing audio call animation", e);
+            }
+        });
     }
 
     private void animateFade(View view, float targetAlpha) {
@@ -395,6 +449,9 @@ public class CallingActivity extends AppCompatActivity {
             }
             textCallTimer.setText("00:00");
             controlsContainer.setVisibility(View.VISIBLE);
+            if (!isVideoCall) {
+                playAudioCallAnimation();
+            }
             running = true;
             runTimer();
             startContinuousAiListening();
@@ -521,6 +578,21 @@ public class CallingActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onRemoteVideoStateChanged(boolean isVideoOn) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    isRemoteVideoEnabled = isVideoOn;
+                    if (isVideoOn) {
+                        switchToVideoMode();
+                    } else {
+                        if (!isVideoEnabled) {
+                            switchToAudioMode();
+                        }
+                    }
+                });
+            }
+
+            @Override
             public void onCallEnded() {
                 runOnUiThread(() -> {
                     Toast.makeText(CallingActivity.this, "Call Ended", Toast.LENGTH_SHORT).show();
@@ -573,6 +645,7 @@ public class CallingActivity extends AppCompatActivity {
     private void acceptCall() {
         btnAcceptCall.setVisibility(View.GONE);
         controlsContainer.setVisibility(View.VISIBLE);
+        playAudioCallAnimation();
         stopRinging();
         if (checkPermissions()) {
             if (peerConnection == null) {
@@ -669,29 +742,6 @@ public class CallingActivity extends AppCompatActivity {
         return null;
     }
 
-    private void ensureLocalVideoInitialized() {
-        if (localVideoTrack != null) return;
-        try {
-            videoCapturer = createVideoCapturer();
-            if (videoCapturer != null && rootEglBase != null && factory != null) {
-                surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
-                videoSource = factory.createVideoSource(videoCapturer.isScreencast());
-                videoCapturer.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
-                videoCapturer.startCapture(1280, 720, 30);
-
-                localVideoTrack = factory.createVideoTrack("102", videoSource);
-                localVideoTrack.setEnabled(false);
-                localVideoTrack.addSink(pipVideoView);
-
-                if (peerConnection != null) {
-                    peerConnection.addTrack(localVideoTrack);
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing camera video track", e);
-        }
-    }
-
     private void setupPeerConnection() {
         PeerConnectionFactory.InitializationOptions initializationOptions =
                 PeerConnectionFactory.InitializationOptions.builder(this)
@@ -740,6 +790,22 @@ public class CallingActivity extends AppCompatActivity {
         audioSource = factory.createAudioSource(audioConstraints);
         localAudioTrack = factory.createAudioTrack("101", audioSource);
         localAudioTrack.setEnabled(true);
+
+        // Pre-create local video track and attach to PeerConnection upfront
+        try {
+            videoCapturer = createVideoCapturer();
+            if (videoCapturer != null && rootEglBase != null) {
+                surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+                videoSource = factory.createVideoSource(videoCapturer.isScreencast());
+                videoCapturer.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
+
+                localVideoTrack = factory.createVideoTrack("102", videoSource);
+                localVideoTrack.setEnabled(false); // Dormant until user turns video ON
+                localVideoTrack.addSink(pipVideoView);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing camera video track", e);
+        }
 
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
         // Global High-Availability STUN Servers
@@ -817,13 +883,16 @@ public class CallingActivity extends AppCompatActivity {
 
             @Override
             public void onAddStream(MediaStream mediaStream) {
-                Log.d(TAG, "Remote MediaStream added: " + mediaStream.getId());
+                Log.d(TAG, "Remote MediaStream added: " + mediaStream.getId() + " videoTracks: " + mediaStream.videoTracks.size());
                 if (!mediaStream.videoTracks.isEmpty()) {
                     remoteVideoTrack = mediaStream.videoTracks.get(0);
                     runOnUiThread(() -> {
                         if (isFinishing() || isDestroyed()) return;
+                        remoteVideoTrack.setEnabled(true);
                         remoteVideoTrack.addSink(fullscreenVideoView);
-                        switchToVideoMode();
+                        if (isRemoteVideoEnabled || isVideoEnabled) {
+                            switchToVideoMode();
+                        }
                     });
                 }
             }
@@ -836,8 +905,11 @@ public class CallingActivity extends AppCompatActivity {
                         remoteVideoTrack = (VideoTrack) track;
                         runOnUiThread(() -> {
                             if (isFinishing() || isDestroyed()) return;
+                            remoteVideoTrack.setEnabled(true);
                             remoteVideoTrack.addSink(fullscreenVideoView);
-                            switchToVideoMode();
+                            if (isRemoteVideoEnabled || isVideoEnabled) {
+                                switchToVideoMode();
+                            }
                         });
                     }
                 }
@@ -849,6 +921,9 @@ public class CallingActivity extends AppCompatActivity {
         });
 
         peerConnection.addTrack(localAudioTrack);
+        if (localVideoTrack != null) {
+            peerConnection.addTrack(localVideoTrack);
+        }
     }
 
     private void setupActions() {
@@ -906,13 +981,25 @@ public class CallingActivity extends AppCompatActivity {
 
     private void toggleVideo(boolean enable) {
         isVideoEnabled = enable;
+        if (signalingClient != null && targetPhone != null && !targetPhone.isEmpty()) {
+            signalingClient.sendVideoState(targetPhone, enable);
+        }
         if (enable) {
-            ensureLocalVideoInitialized();
+            if (videoCapturer != null && !isCapturing) {
+                try {
+                    videoCapturer.startCapture(1280, 720, 30);
+                    isCapturing = true;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error starting camera capture", e);
+                }
+            }
             if (localVideoTrack != null) {
                 localVideoTrack.setEnabled(true);
             }
             if (cardPipVideo != null) {
                 cardPipVideo.setVisibility(View.VISIBLE);
+                if (pipVideoView != null) pipVideoView.setVisibility(View.VISIBLE);
+                cardPipVideo.bringToFront();
             }
             if (audioManager != null) {
                 audioManager.setSpeakerphoneOn(true);
@@ -923,10 +1010,18 @@ public class CallingActivity extends AppCompatActivity {
             if (localVideoTrack != null) {
                 localVideoTrack.setEnabled(false);
             }
+            if (videoCapturer != null && isCapturing) {
+                try {
+                    videoCapturer.stopCapture();
+                    isCapturing = false;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error stopping camera capture", e);
+                }
+            }
             if (cardPipVideo != null) {
                 cardPipVideo.setVisibility(View.GONE);
             }
-            if (remoteVideoTrack == null) {
+            if (!isRemoteVideoEnabled) {
                 switchToAudioMode();
             }
             Toast.makeText(this, "Camera Turned Off", Toast.LENGTH_SHORT).show();
@@ -1071,11 +1166,32 @@ public class CallingActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (!isVideoCall && (!isIncoming || isConnected)) {
+            playAudioCallAnimation();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (videoViewAudioBg != null && videoViewAudioBg.isPlaying()) {
+            videoViewAudioBg.pause();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         running = false;
         stopRinging();
         handler.removeCallbacks(hideControlsRunnable);
+        if (videoViewAudioBg != null) {
+            try {
+                videoViewAudioBg.stopPlayback();
+            } catch (Exception ignored) {}
+        }
         ActiveCallSession.getInstance().endSession();
         if (aiProcessor != null) {
             aiProcessor.stop();
@@ -1091,7 +1207,10 @@ public class CallingActivity extends AppCompatActivity {
         // Release Video Resources
         if (videoCapturer != null) {
             try {
-                videoCapturer.stopCapture();
+                if (isCapturing) {
+                    videoCapturer.stopCapture();
+                    isCapturing = false;
+                }
             } catch (Exception ignored) {}
             videoCapturer.dispose();
             videoCapturer = null;
