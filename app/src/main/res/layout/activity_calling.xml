@@ -2,9 +2,12 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_calling_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0F172A"
+    android:clickable="true"
+    android:focusable="true"
     tools:context=".CallingActivity">
 
     <!-- FULLSCREEN REMOTE VIDEO RENDERER -->
@@ -45,17 +48,19 @@
         android:alpha="0.5"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- LOCAL PIP VIDEO PREVIEW -->
+    <!-- DRAGGABLE LOCAL PIP VIDEO PREVIEW -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_pip_video"
         android:layout_width="110dp"
-        android:layout_height="150dp"
+        android:layout_height="155dp"
         android:layout_marginTop="56dp"
         android:layout_marginEnd="16dp"
         android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
         app:cardBackgroundColor="#1E293B"
         app:cardCornerRadius="16dp"
-        app:cardElevation="16dp"
+        app:cardElevation="20dp"
         app:strokeColor="#60A5FA"
         app:strokeWidth="2dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -147,32 +152,38 @@
             android:contentDescription="@string/desc_caller_avatar" />
     </com.google.android.material.card.MaterialCardView>
 
-    <TextView
-        android:id="@+id/text_caller_name"
+    <!-- Caller Info Header (Header text & timer) -->
+    <LinearLayout
+        android:id="@+id/caller_info_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="John Doe"
-        android:textColor="@color/white"
-        android:textSize="32sp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.02"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:layout_marginTop="28dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/card_avatar" />
+        app:layout_constraintTop_toBottomOf="@id/card_avatar">
 
-    <TextView
-        android:id="@+id/text_call_timer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/timer_initial"
-        android:textColor="#B3FFFFFF"
-        android:textSize="20sp"
-        android:fontFamily="sans-serif-light"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/text_caller_name" />
+        <TextView
+            android:id="@+id/text_caller_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="John Doe"
+            android:textColor="@color/white"
+            android:textSize="28sp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.02" />
+
+        <TextView
+            android:id="@+id/text_call_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/timer_initial"
+            android:textColor="#B3FFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-light" />
+    </LinearLayout>
 
     <!-- AI Spam Warning (Hidden by default) -->
     <TextView
@@ -190,14 +201,14 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/text_call_timer" />
+        app:layout_constraintTop_toBottomOf="@id/caller_info_container" />
 
     <!-- Controls Container -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/controls_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="48dp"
+        android:layout_marginBottom="36dp"
         app:layout_constraintBottom_toTopOf="@+id/btn_end_call">
 
         <GridLayout
@@ -226,7 +237,7 @@
         android:id="@+id/btn_accept_call"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="64dp"
+        android:layout_marginBottom="54dp"
         android:layout_marginEnd="32dp"
         android:src="@drawable/ic_call"
         android:visibility="gone"
@@ -245,7 +256,7 @@
         android:id="@+id/btn_end_call"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="64dp"
+        android:layout_marginBottom="54dp"
         android:src="@drawable/ic_call_end"
         app:backgroundTint="#EF4444"
         app:elevation="12dp"
