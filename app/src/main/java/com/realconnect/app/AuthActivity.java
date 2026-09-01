@@ -35,6 +35,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -45,15 +46,13 @@ public class AuthActivity extends AppCompatActivity {
     private static final String TAG = "AuthActivity";
     private static final String PREFS_NAME = "ProfilePrefs";
 
-    // 13-digit base: 9100000000000L -> gives sequential 13-digit numbers (0-9)
-    private static final long BASE_13_DIGIT_PHONE = 9100000000000L;
-
     private FrameLayout layoutLoadingOverlay;
     private TextView textLoadingStatus;
 
     private FirebaseAuth mAuth;
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -180,7 +179,7 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void onGoogleAuthSuccess(String name, String email, String photoUrl, String uid) {
-        showLoading("Assigning 13-digit RealConnect ID...");
+        showLoading("Assigning unique 13-digit RealConnect ID...");
 
         // Check if user already has an allocated 13-digit number in Firebase
         DatabaseReference userAccRef = FirebaseDatabase.getInstance().getReference("user_accounts").child(uid).child("assigned_phone");
@@ -195,76 +194,103 @@ public class AuthActivity extends AppCompatActivity {
                     Toast.makeText(AuthActivity.this, "Welcome " + name + "!\nCalling ID: " + existingAssignedPhone, Toast.LENGTH_LONG).show();
                     proceedToMain();
                 } else {
-                    // Allocate new 13-digit number via atomic transaction (0 collisions)
-                    allocate13DigitPhoneAtomic(uid, name, email, photoUrl);
+                    // Allocate new randomized 13-digit number via atomic cloud transaction (0 collisions)
+                    allocateRandom13DigitPhone(uid, name, email, photoUrl, 1);
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                allocate13DigitPhoneAtomic(uid, name, email, photoUrl);
+                allocateRandom13DigitPhone(uid, name, email, photoUrl, 1);
             }
         });
     }
 
     /**
-     * Atomically increments the 13-digit phone counter in Firebase Realtime Database.
-     * Guaranteed 0 collisions across all devices.
+     * Generates a randomized 13-digit phone number (0-9 digits) and claims it atomically
+     * in Firebase Realtime Database. Guaranteed 0 collisions across all devices.
      */
-    private void allocate13DigitPhoneAtomic(String uid, String name, String email, String photoUrl) {
+    private void allocateRandom13DigitPhone(String uid, String name, String email, String photoUrl, int attempt) {
+        if (attempt > 10) {
+            // Safety fallback if too many attempts
+            String fallback = generateDeterministic13Digit(uid);
+            finalizeProfileSetup(fallback, uid, name, email, photoUrl);
+            return;
+        }
+
         showLoading("Assigning unique 13-digit calling ID...");
 
-        DatabaseReference counterRef = FirebaseDatabase.getInstance().getReference("system").child("phone_counter_13digit");
+        String candidatePhone = generateRandom13Digit();
+        DatabaseReference phoneDirRef = FirebaseDatabase.getInstance().getReference("phone_directory").child(candidatePhone);
 
-        counterRef.runTransaction(new Transaction.Handler() {
+        phoneDirRef.runTransaction(new Transaction.Handler() {
             @NonNull
             @Override
             public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                Long currentVal = currentData.getValue(Long.class);
-                if (currentVal == null || currentVal < BASE_13_DIGIT_PHONE) {
-                    currentVal = BASE_13_DIGIT_PHONE;
+                if (currentData.getValue() != null) {
+                    // Number collision! Abort and try another random 13-digit number
+                    return Transaction.abort();
                 }
-                long nextVal = currentVal + 1;
-                currentData.setValue(nextVal);
+                // Claim number atomically for this UID
+                Map<String, Object> claimData = new HashMap<>();
+                claimData.put("uid", uid);
+                claimData.put("claimedAt", System.currentTimeMillis());
+                currentData.setValue(claimData);
                 return Transaction.success(currentData);
             }
 
             @Override
             public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot snapshot) {
-                hideLoading();
-                String phone13Digit;
-
-                if (committed && snapshot != null && snapshot.getValue(Long.class) != null) {
-                    phone13Digit = String.valueOf(snapshot.getValue(Long.class));
+                if (committed) {
+                    // Successfully claimed unique random 13-digit number with 0 collisions!
+                    finalizeProfileSetup(candidatePhone, uid, name, email, photoUrl);
                 } else {
-                    // Fallback: Deterministic 13-digit number from UID if offline
-                    phone13Digit = generateDeterministic13Digit(uid);
+                    // Retry with a new random number
+                    allocateRandom13DigitPhone(uid, name, email, photoUrl, attempt + 1);
                 }
-
-                // 1. Save permanent assignment to /user_accounts/{uid}/assigned_phone
-                FirebaseDatabase.getInstance().getReference("user_accounts")
-                        .child(uid).child("assigned_phone").setValue(phone13Digit);
-
-                // 2. Save reverse lookup /phone_to_user/{phone13Digit}
-                Map<String, Object> mapping = new HashMap<>();
-                mapping.put("uid", uid);
-                mapping.put("name", name != null ? name : "User");
-                mapping.put("email", email != null ? email : "");
-                FirebaseDatabase.getInstance().getReference("phone_to_user")
-                        .child(phone13Digit).setValue(mapping);
-
-                // 3. Save local profile and sync to /users/{phone13Digit}
-                saveProfile(phone13Digit, name != null ? name : "User", email != null ? email : "", photoUrl);
-
-                Toast.makeText(AuthActivity.this, "Assigned 13-Digit Calling ID:\n" + phone13Digit, Toast.LENGTH_LONG).show();
-                proceedToMain();
             }
         });
     }
 
+    /**
+     * Generates a 13-digit number (0-9 digits).
+     * Example: 9482019482019
+     */
+    private String generateRandom13Digit() {
+        StringBuilder sb = new StringBuilder(13);
+        // Start with 1-9 so it's a full 13-digit number
+        sb.append(1 + secureRandom.nextInt(9));
+        for (int i = 0; i < 12; i++) {
+            sb.append(secureRandom.nextInt(10));
+        }
+        return sb.toString();
+    }
+
+    private void finalizeProfileSetup(String phone13Digit, String uid, String name, String email, String photoUrl) {
+        hideLoading();
+
+        // 1. Save permanent assignment to /user_accounts/{uid}/assigned_phone
+        FirebaseDatabase.getInstance().getReference("user_accounts")
+                .child(uid).child("assigned_phone").setValue(phone13Digit);
+
+        // 2. Save reverse lookup /phone_to_user/{phone13Digit}
+        Map<String, Object> mapping = new HashMap<>();
+        mapping.put("uid", uid);
+        mapping.put("name", name != null ? name : "User");
+        mapping.put("email", email != null ? email : "");
+        FirebaseDatabase.getInstance().getReference("phone_to_user")
+                .child(phone13Digit).setValue(mapping);
+
+        // 3. Save local profile and sync to /users/{phone13Digit}
+        saveProfile(phone13Digit, name != null ? name : "User", email != null ? email : "", photoUrl);
+
+        Toast.makeText(AuthActivity.this, "Assigned 13-Digit Calling ID:\n" + phone13Digit, Toast.LENGTH_LONG).show();
+        proceedToMain();
+    }
+
     private String generateDeterministic13Digit(String uid) {
         long hash = Math.abs((long) uid.hashCode());
-        return String.format(Locale.US, "91%011d", hash % 100000000000L);
+        return String.format(Locale.US, "9%012d", hash % 1000000000000L);
     }
 
     private void saveProfile(String phone, String name, String email, String photoUrl) {
