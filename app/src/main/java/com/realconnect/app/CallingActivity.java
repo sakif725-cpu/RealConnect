@@ -79,6 +79,7 @@ public class CallingActivity extends AppCompatActivity {
     private String selfPhone;
     private String targetPhone;
     private boolean isIncoming;
+    private SessionDescription remoteOfferDescription;
     private LiveRiskResult lastRiskResult;
     private LiveCallAiProcessor aiProcessor;
 
@@ -112,6 +113,11 @@ public class CallingActivity extends AppCompatActivity {
         targetPhone = getIntent().getStringExtra("CONTACT_PHONE");
         isIncoming = getIntent().getBooleanExtra("IS_INCOMING", false);
         isVideoCall = getIntent().getBooleanExtra("IS_VIDEO_CALL", false);
+
+        String remoteOfferStr = getIntent().getStringExtra("REMOTE_OFFER");
+        if (remoteOfferStr != null && !remoteOfferStr.trim().isEmpty()) {
+            remoteOfferDescription = new SessionDescription(SessionDescription.Type.OFFER, remoteOfferStr);
+        }
 
         if (selfPhone.isEmpty()) {
             Toast.makeText(this, "Profile number missing!", Toast.LENGTH_SHORT).show();
@@ -347,15 +353,18 @@ public class CallingActivity extends AppCompatActivity {
             public void onRemoteOfferReceived(String callerPhone, SessionDescription description) {
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
+                    remoteOfferDescription = description;
                     if (peerConnection == null) {
                         setupPeerConnection();
                     }
-                    peerConnection.setRemoteDescription(new SimpleSdpObserver() {
-                        @Override
-                        public void onSetSuccess() {
-                            drainPendingIceCandidates();
-                        }
-                    }, description);
+                    if (peerConnection.getRemoteDescription() == null) {
+                        peerConnection.setRemoteDescription(new SimpleSdpObserver() {
+                            @Override
+                            public void onSetSuccess() {
+                                drainPendingIceCandidates();
+                            }
+                        }, description);
+                    }
                 });
             }
 
@@ -441,8 +450,26 @@ public class CallingActivity extends AppCompatActivity {
             if (peerConnection == null) {
                 setupPeerConnection();
             }
-            createAnswer();
-            onCallConnected();
+
+            if (remoteOfferDescription != null) {
+                peerConnection.setRemoteDescription(new SimpleSdpObserver() {
+                    @Override
+                    public void onSetSuccess() {
+                        drainPendingIceCandidates();
+                        createAnswer();
+                        onCallConnected();
+                    }
+                    @Override
+                    public void onSetFailure(String s) {
+                        Log.e(TAG, "Failed to set remote offer: " + s);
+                        createAnswer();
+                        onCallConnected();
+                    }
+                }, remoteOfferDescription);
+            } else {
+                createAnswer();
+                onCallConnected();
+            }
         } else {
             requestPermissions();
         }
@@ -634,10 +661,10 @@ public class CallingActivity extends AppCompatActivity {
             @Override public void onSignalingChange(PeerConnection.SignalingState signalingState) {}
             @Override public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
                 Log.d(TAG, "ICE State: " + iceConnectionState);
-                if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
+                if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED ||
+                    iceConnectionState == PeerConnection.IceConnectionState.COMPLETED) {
                     onCallConnected();
-                } else if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED ||
-                           iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
+                } else if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
                     runOnUiThread(() -> {
                         if (isConnected) {
                             Toast.makeText(CallingActivity.this, "Call Disconnected", Toast.LENGTH_SHORT).show();
