@@ -4,16 +4,68 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_calling_gradient"
+    android:background="#0F172A"
     tools:context=".CallingActivity">
 
-    <!-- Top Glow / Shadow -->
+    <!-- FULLSCREEN REMOTE VIDEO RENDERER -->
+    <org.webrtc.SurfaceViewRenderer
+        android:id="@+id/fullscreen_video_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- VIDEO OVERLAY GRADIENT (Top & Bottom for readability) -->
     <View
+        android:id="@+id/video_overlay_gradient_top"
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:background="@drawable/bg_calling_gradient"
+        android:alpha="0.75"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/video_overlay_gradient_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="280dp"
+        android:background="#DD0F172A"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- Top Glow / Shadow (Voice Mode) -->
+    <View
+        android:id="@+id/voice_bg_glow"
         android:layout_width="match_parent"
         android:layout_height="300dp"
         android:background="@drawable/bg_calling_gradient"
         android:alpha="0.5"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- LOCAL PIP VIDEO PREVIEW -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_pip_video"
+        android:layout_width="110dp"
+        android:layout_height="150dp"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#1E293B"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="16dp"
+        app:strokeColor="#60A5FA"
+        app:strokeWidth="2dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <org.webrtc.SurfaceViewRenderer
+            android:id="@+id/pip_video_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Minimize Call Button -->
     <ImageButton
@@ -35,7 +87,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="60dp"
-        app:cardBackgroundColor="#33000000"
+        app:cardBackgroundColor="#66000000"
         app:cardCornerRadius="20dp"
         app:cardElevation="0dp"
         app:strokeColor="#44FFFFFF"
@@ -72,7 +124,7 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Contact Info Section -->
+    <!-- Contact Info Section (Audio Mode Avatar) -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_avatar"
         android:layout_width="140dp"
@@ -160,10 +212,10 @@
 
             <include layout="@layout/item_call_action" android:id="@+id/action_mute" />
             <include layout="@layout/item_call_action" android:id="@+id/action_speaker" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_video" />
+            <include layout="@layout/item_call_action" android:id="@+id/action_flip_camera" />
             <include layout="@layout/item_call_action" android:id="@+id/action_ai_mode" />
             <include layout="@layout/item_call_action" android:id="@+id/action_record" />
-            <include layout="@layout/item_call_action" android:id="@+id/action_hold" />
-            <include layout="@layout/item_call_action" android:id="@+id/action_keypad" />
 
         </GridLayout>
 

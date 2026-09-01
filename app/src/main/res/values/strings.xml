@@ -44,6 +44,8 @@
     <string name="label_record">Record</string>
     <string name="label_hold">Hold</string>
     <string name="label_add_call">Add Call</string>
+    <string name="label_video">Video</string>
+    <string name="label_flip_camera">Flip</string>
     <string name="label_ai_mode">AI Mode</string>
     <string name="desc_caller_avatar">Caller Avatar</string>
     <string name="desc_end_call">End Call</string>

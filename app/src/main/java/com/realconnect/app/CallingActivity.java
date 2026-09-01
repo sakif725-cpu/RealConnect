@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.Ringtone;
@@ -28,10 +27,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 import org.webrtc.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,17 +44,35 @@ public class CallingActivity extends AppCompatActivity {
     private FloatingActionButton btnAcceptCall;
     private Ringtone ringtone;
     
+    // Video Views & Overlays
+    private SurfaceViewRenderer fullscreenVideoView;
+    private SurfaceViewRenderer pipVideoView;
+    private View cardPipVideo;
+    private View cardAvatar;
+    private View videoOverlayTop;
+    private View videoOverlayBottom;
+    private View voiceBgGlow;
+
     private int seconds = 0;
     private boolean running = false;
     private boolean isConnected = false;
+    private boolean isVideoCall = false;
+    private boolean isVideoEnabled = true;
+    private boolean isFrontCamera = true;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<IceCandidate> pendingIceCandidates = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     // WebRTC components
+    private EglBase rootEglBase;
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
     private AudioSource audioSource;
     private AudioTrack localAudioTrack;
+    private VideoCapturer videoCapturer;
+    private SurfaceTextureHelper surfaceTextureHelper;
+    private VideoSource videoSource;
+    private VideoTrack localVideoTrack;
+    private VideoTrack remoteVideoTrack;
     private AudioManager audioManager;
     private SignalingClient signalingClient;
     
@@ -98,6 +111,7 @@ public class CallingActivity extends AppCompatActivity {
         selfPhone = prefs.getString("phone", "");
         targetPhone = getIntent().getStringExtra("CONTACT_PHONE");
         isIncoming = getIntent().getBooleanExtra("IS_INCOMING", false);
+        isVideoCall = getIntent().getBooleanExtra("IS_VIDEO_CALL", false);
 
         if (selfPhone.isEmpty()) {
             Toast.makeText(this, "Profile number missing!", Toast.LENGTH_SHORT).show();
@@ -115,6 +129,17 @@ public class CallingActivity extends AppCompatActivity {
         btnAcceptCall = findViewById(R.id.btn_accept_call);
         controlsContainer = findViewById(R.id.controls_container);
 
+        // Video views
+        fullscreenVideoView = findViewById(R.id.fullscreen_video_view);
+        pipVideoView = findViewById(R.id.pip_video_view);
+        cardPipVideo = findViewById(R.id.card_pip_video);
+        cardAvatar = findViewById(R.id.card_avatar);
+        videoOverlayTop = findViewById(R.id.video_overlay_gradient_top);
+        videoOverlayBottom = findViewById(R.id.video_overlay_gradient_bottom);
+        voiceBgGlow = findViewById(R.id.voice_bg_glow);
+
+        initEglAndVideoRenderers();
+
         String name = getIntent().getStringExtra("CONTACT_NAME");
         String resolvedName = ContactRepository.getInstance(this).getDisplayName(targetPhone);
         if (resolvedName != null && !resolvedName.equals(targetPhone)) {
@@ -122,7 +147,7 @@ public class CallingActivity extends AppCompatActivity {
         }
 
         ImageView imgAvatarCalling = findViewById(R.id.img_avatar_calling);
-        loadCallerAvatar(imgAvatarCalling, targetPhone, name);
+        AvatarHelper.loadAvatar(this, imgAvatarCalling, targetPhone, name);
 
         textCallerName.setText(name != null && !name.isEmpty() ? name : (targetPhone != null ? targetPhone : "Unknown"));
 
@@ -134,11 +159,15 @@ public class CallingActivity extends AppCompatActivity {
             badgeAiStatus.setOnClickListener(v -> performVoiceAiAnalysis(true));
         }
 
+        if (isVideoCall) {
+            switchToVideoMode();
+        }
+
         // Default UI State: Controls visible for caller, hidden for receiver
         if (isIncoming) {
             btnAcceptCall.setVisibility(View.VISIBLE);
             controlsContainer.setVisibility(View.GONE);
-            textCallTimer.setText("Incoming...");
+            textCallTimer.setText(isVideoCall ? "Incoming Video Call..." : "Incoming Call...");
             startRinging();
             
             if (getIntent().getBooleanExtra("IS_SPAM", false)) {
@@ -174,81 +203,45 @@ public class CallingActivity extends AppCompatActivity {
         setupSignaling();
     }
 
-    private void loadCallerAvatar(ImageView imgAvatar, String phone, String name) {
-        if (imgAvatar == null) return;
+    private void initEglAndVideoRenderers() {
+        try {
+            rootEglBase = EglBase.create();
 
-        String displayName = (name != null && !name.trim().isEmpty()) ? name : (phone != null ? phone : "?");
-        String cleanTarget = ChatRepository.cleanPhone(phone);
-        String cleanSelf = ChatRepository.cleanPhone(selfPhone);
+            pipVideoView.init(rootEglBase.getEglBaseContext(), null);
+            pipVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
+            pipVideoView.setZOrderMediaOverlay(true);
+            pipVideoView.setEnableHardwareScaler(true);
 
-        // 1. Initial placeholder with clean background and initial letter
-        Bitmap initialAvatar = ImageUtils.createAvatarWithInitial(displayName, 280, Color.parseColor("#1E293B"), Color.WHITE);
-        imgAvatar.setPadding(0, 0, 0, 0);
-        imgAvatar.setImageTintList(null);
-        imgAvatar.setColorFilter(null);
-        imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        imgAvatar.setImageBitmap(initialAvatar);
-
-        // 2. If self-call or local profile photo exists, display immediately
-        if (cleanTarget.equals(cleanSelf)) {
-            SharedPreferences prefs = getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE);
-            String imageUriStr = prefs.getString("image_uri", null);
-            if (imageUriStr != null && !imageUriStr.isEmpty()) {
-                try {
-                    Uri uri = Uri.parse(imageUriStr);
-                    imgAvatar.setImageURI(uri);
-                    return;
-                } catch (Exception ignored) {}
-            }
+            fullscreenVideoView.init(rootEglBase.getEglBaseContext(), null);
+            fullscreenVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
+            fullscreenVideoView.setEnableHardwareScaler(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing video renderers", e);
         }
+    }
 
-        // 3. Fetch remote profile picture from Firebase Realtime Database
-        if (!cleanTarget.isEmpty()) {
-            FirebaseDatabase.getInstance().getReference("users")
-                    .child(cleanTarget)
-                    .addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(@NonNull DataSnapshot snapshot) {
-                            try {
-                                if (isFinishing() || isDestroyed()) return;
+    public void switchToVideoMode() {
+        runOnUiThread(() -> {
+            isVideoCall = true;
+            if (fullscreenVideoView != null) fullscreenVideoView.setVisibility(View.VISIBLE);
+            if (cardPipVideo != null && isVideoEnabled) cardPipVideo.setVisibility(View.VISIBLE);
+            if (videoOverlayTop != null) videoOverlayTop.setVisibility(View.VISIBLE);
+            if (videoOverlayBottom != null) videoOverlayBottom.setVisibility(View.VISIBLE);
+            if (cardAvatar != null) cardAvatar.setVisibility(View.GONE);
+            if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.GONE);
+        });
+    }
 
-                                String base64 = snapshot.child("profileImageBase64").getValue(String.class);
-                                String remoteName = snapshot.child("name").getValue(String.class);
-
-                                if (remoteName != null && !remoteName.trim().isEmpty()) {
-                                    ContactRepository.getInstance(CallingActivity.this).saveCachedRegisteredName(phone, remoteName);
-                                }
-
-                                runOnUiThread(() -> {
-                                    String localSaved = ContactRepository.getInstance(CallingActivity.this).findContactByNumber(phone);
-                                    if (localSaved == null && remoteName != null && !remoteName.trim().isEmpty()) {
-                                        TextView textCallerName = findViewById(R.id.text_caller_name);
-                                        if (textCallerName != null) {
-                                            textCallerName.setText(remoteName);
-                                        }
-                                        ActiveCallSession.getInstance().updateCallerName(remoteName);
-                                    }
-
-                                    if (base64 != null && !base64.trim().isEmpty()) {
-                                        Bitmap photo = ImageUtils.base64ToBitmap(base64);
-                                        if (photo != null) {
-                                            imgAvatar.setPadding(0, 0, 0, 0);
-                                            imgAvatar.setImageTintList(null);
-                                            imgAvatar.setColorFilter(null);
-                                            imgAvatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                                            imgAvatar.setImageBitmap(photo);
-                                        }
-                                    }
-                                });
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error rendering caller avatar", e);
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(@NonNull DatabaseError error) {}
-                    });
-        }
+    public void switchToAudioMode() {
+        runOnUiThread(() -> {
+            isVideoCall = false;
+            if (fullscreenVideoView != null) fullscreenVideoView.setVisibility(View.GONE);
+            if (cardPipVideo != null) cardPipVideo.setVisibility(View.GONE);
+            if (videoOverlayTop != null) videoOverlayTop.setVisibility(View.GONE);
+            if (videoOverlayBottom != null) videoOverlayBottom.setVisibility(View.GONE);
+            if (cardAvatar != null) cardAvatar.setVisibility(View.VISIBLE);
+            if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.VISIBLE);
+        });
     }
 
     private void showSpamWarning() {
@@ -265,6 +258,9 @@ public class CallingActivity extends AppCompatActivity {
             if (audioManager != null) {
                 audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
                 audioManager.setMicrophoneMute(false);
+                if (isVideoCall) {
+                    audioManager.setSpeakerphoneOn(true);
+                }
             }
             textCallTimer.setText("00:00");
             controlsContainer.setVisibility(View.VISIBLE);
@@ -305,12 +301,10 @@ public class CallingActivity extends AppCompatActivity {
                     if (isFinishing() || isDestroyed()) return;
 
                     if (result.getLevel() == LiveRiskResult.Level.HIGH) {
-                        // Silently send real-time threat alert to the other caller so victim's phone warns them
                         if (signalingClient != null && targetPhone != null && !targetPhone.isEmpty()) {
                             signalingClient.sendThreatAlert(targetPhone, result.getSummary(), result.getRiskScore());
                         }
                     } else if (result.getLevel() == LiveRiskResult.Level.MEDIUM) {
-                        // Moderate risk - Keep local UI in standard monitoring mode
                         textAiStatus.setText("AI: ACTIVE (" + result.getRiskScore() + "%)");
                         textAiStatus.setTextColor(Color.parseColor("#22C55E"));
                         textSpamWarning.setVisibility(View.GONE);
@@ -339,7 +333,7 @@ public class CallingActivity extends AppCompatActivity {
             resultToShow.setContextEvaluated(true);
             resultToShow.setSpam(isSpamPreFlagged);
             resultToShow.setCallerIntent("Live Call AI Guard Active");
-            resultToShow.addIndicator("• Real-time speech & acoustic monitoring active");
+            resultToShow.addIndicator("• Real-time speech, video & acoustic monitoring active");
             lastRiskResult = resultToShow;
         }
         if (showModalOnFinish) {
@@ -350,21 +344,40 @@ public class CallingActivity extends AppCompatActivity {
     private void setupSignaling() {
         signalingClient = new SignalingClient(selfPhone, new SignalingClient.SignalingInterface() {
             @Override
-            public void onRemoteAnswerReceived(SessionDescription description) {
-                if (peerConnection != null) {
-                    Log.d(TAG, "Answer Received - Connecting...");
+            public void onRemoteOfferReceived(String callerPhone, SessionDescription description) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (peerConnection == null) {
+                        setupPeerConnection();
+                    }
                     peerConnection.setRemoteDescription(new SimpleSdpObserver() {
                         @Override
                         public void onSetSuccess() {
-                            runOnUiThread(() -> drainRemoteCandidates());
+                            drainPendingIceCandidates();
                         }
                     }, description);
-                }
+                });
+            }
+
+            @Override
+            public void onRemoteAnswerReceived(SessionDescription description) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (peerConnection != null) {
+                        peerConnection.setRemoteDescription(new SimpleSdpObserver() {
+                            @Override
+                            public void onSetSuccess() {
+                                drainPendingIceCandidates();
+                            }
+                        }, description);
+                        onCallConnected();
+                    }
+                });
             }
 
             @Override
             public void onRemoteIceCandidateReceived(IceCandidate candidate) {
-                if (peerConnection != null && peerConnection.getRemoteDescription() != null && peerConnection.getLocalDescription() != null) {
+                if (peerConnection != null && peerConnection.getRemoteDescription() != null) {
                     peerConnection.addIceCandidate(candidate);
                 } else {
                     pendingIceCandidates.add(candidate);
@@ -372,132 +385,136 @@ public class CallingActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onThreatAlertReceived(String reason, int riskScore) {
+            public void onCallEnded() {
                 runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    textAiStatus.setText("AI: HIGH RISK (" + riskScore + "%)");
-                    textAiStatus.setTextColor(Color.parseColor("#EF4444"));
-                    textSpamWarning.setVisibility(View.VISIBLE);
-                    textSpamWarning.setText("⚠ " + (reason != null && !reason.isEmpty() ? reason.toUpperCase() : "POTENTIAL SCAM / THREAT DETECTED"));
-                    
-                    // Show warning banner with prominent alert animation
-                    textSpamWarning.setAlpha(1.0f);
+                    Toast.makeText(CallingActivity.this, "Call Ended", Toast.LENGTH_SHORT).show();
+                    endCallLocally();
                 });
             }
 
             @Override
-            public void onCallEnded() {
+            public void onThreatAlertReceived(String reason, int riskScore) {
                 runOnUiThread(() -> {
-                    if (!isFinishing()) {
-                        Toast.makeText(CallingActivity.this, "Call Ended", Toast.LENGTH_SHORT).show();
-                        finish();
-                    }
+                    if (isFinishing() || isDestroyed()) return;
+
+                    LiveRiskResult alertResult = new LiveRiskResult(
+                            LiveRiskResult.Level.HIGH,
+                            riskScore > 0 ? riskScore : 90,
+                            reason != null ? reason : "SUSPICIOUS THREAT DETECTED ON LIVE CALL",
+                            "AI Guard detected potential scam keywords or manipulative patterns. Do NOT share OTPs, PINs, or transfer money."
+                    );
+                    alertResult.setContextEvaluated(true);
+                    alertResult.setSpam(true);
+                    alertResult.setCallerIntent("Live Call AI Threat Intercept");
+                    alertResult.addIndicator("• Remote threat warning: " + reason);
+                    lastRiskResult = alertResult;
+
+                    textAiStatus.setText("🚨 FRAUD WARNING (" + alertResult.getRiskScore() + "%)");
+                    textAiStatus.setTextColor(Color.parseColor("#EF4444"));
+                    textSpamWarning.setText("⚠ " + (reason != null ? reason.toUpperCase() : "POTENTIAL SCAM"));
+                    textSpamWarning.setVisibility(View.VISIBLE);
+
+                    LiveCallGuard.showLiveRiskSheet(CallingActivity.this, alertResult);
                 });
             }
         });
     }
 
-    private synchronized void drainRemoteCandidates() {
-        if (peerConnection == null || peerConnection.getRemoteDescription() == null || peerConnection.getLocalDescription() == null) return;
-        Log.d(TAG, "Draining " + pendingIceCandidates.size() + " candidates");
-        for (IceCandidate candidate : pendingIceCandidates) {
-            try {
-                peerConnection.addIceCandidate(candidate);
-            } catch (Exception e) {
-                Log.e(TAG, "Error adding ICE candidate", e);
-            }
+    private void drainPendingIceCandidates() {
+        if (peerConnection == null) return;
+        for (IceCandidate c : pendingIceCandidates) {
+            peerConnection.addIceCandidate(c);
         }
         pendingIceCandidates.clear();
     }
 
     private void startCallFlow() {
-        initializeWebRTC();
-
-        if (isIncoming) {
-            String remoteSdp = getIntent().getStringExtra("REMOTE_OFFER");
-            if (remoteSdp != null) {
-                SessionDescription offer = new SessionDescription(SessionDescription.Type.OFFER, remoteSdp);
-                peerConnection.setRemoteDescription(new SimpleSdpObserver() {
-                    @Override
-                    public void onSetSuccess() {
-                        runOnUiThread(() -> createAnswer());
-                    }
-                }, offer);
-            }
-        } else {
-            createCallOffer();
-        }
-    }
-
-    private void createCallOffer() {
-        MediaConstraints constraints = new MediaConstraints();
-        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        peerConnection.createOffer(new SimpleSdpObserver() {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver() {
-                    @Override
-                    public void onSetSuccess() {
-                        runOnUiThread(() -> drainRemoteCandidates());
-                    }
-                }, sessionDescription);
-                signalingClient.sendOffer(targetPhone, selfPhone, sessionDescription);
-            }
-        }, constraints);
-    }
-
-    private void createAnswer() {
-        MediaConstraints constraints = new MediaConstraints();
-        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        peerConnection.createAnswer(new SimpleSdpObserver() {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver() {
-                    @Override
-                    public void onSetSuccess() {
-                        runOnUiThread(() -> drainRemoteCandidates());
-                    }
-                }, sessionDescription);
-                signalingClient.sendAnswer(targetPhone, sessionDescription);
-            }
-        }, constraints);
-    }
-
-    private void startRinging() {
-        try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-            ringtone = RingtoneManager.getRingtone(getApplicationContext(), notification);
-            if (ringtone != null) ringtone.play();
-        } catch (Exception e) {
-            Log.e(TAG, "Ringtone error", e);
-        }
-    }
-
-    private void stopRinging() {
-        if (ringtone != null && ringtone.isPlaying()) ringtone.stop();
+        setupPeerConnection();
+        createOffer();
     }
 
     private void acceptCall() {
-        stopRinging();
         btnAcceptCall.setVisibility(View.GONE);
-        textCallTimer.setText("Connecting...");
+        controlsContainer.setVisibility(View.VISIBLE);
+        stopRinging();
         if (checkPermissions()) {
-            startCallFlow();
+            if (peerConnection == null) {
+                setupPeerConnection();
+            }
+            createAnswer();
+            onCallConnected();
         } else {
             requestPermissions();
         }
     }
-    
-    private void endCall() {
-        finish();
+
+    private void createOffer() {
+        if (peerConnection == null) return;
+        MediaConstraints sdpConstraints = new MediaConstraints();
+        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+
+        peerConnection.createOffer(new SimpleSdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                signalingClient.sendOffer(targetPhone, selfPhone, sessionDescription);
+            }
+        }, sdpConstraints);
     }
 
-    private void initializeWebRTC() {
-        if (audioManager != null) {
-            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-            audioManager.setSpeakerphoneOn(false);
-        }
+    private void createAnswer() {
+        if (peerConnection == null) return;
+        MediaConstraints sdpConstraints = new MediaConstraints();
+        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        sdpConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
 
+        peerConnection.createAnswer(new SimpleSdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                signalingClient.sendAnswer(targetPhone, sessionDescription);
+            }
+        }, sdpConstraints);
+    }
+
+    private VideoCapturer createVideoCapturer() {
+        VideoCapturer capturer = null;
+        if (Camera2Enumerator.isSupported(this)) {
+            capturer = createCameraCapturer(new Camera2Enumerator(this));
+        }
+        if (capturer == null) {
+            capturer = createCameraCapturer(new Camera1Enumerator(true));
+        }
+        return capturer;
+    }
+
+    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
+        final String[] deviceNames = enumerator.getDeviceNames();
+        // Try front camera first
+        for (String deviceName : deviceNames) {
+            if (enumerator.isFrontFacing(deviceName)) {
+                VideoCapturer capturer = enumerator.createCapturer(deviceName, null);
+                if (capturer != null) {
+                    isFrontCamera = true;
+                    return capturer;
+                }
+            }
+        }
+        // Fallback to rear camera
+        for (String deviceName : deviceNames) {
+            if (!enumerator.isFrontFacing(deviceName)) {
+                VideoCapturer capturer = enumerator.createCapturer(deviceName, null);
+                if (capturer != null) {
+                    isFrontCamera = false;
+                    return capturer;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void setupPeerConnection() {
         PeerConnectionFactory.InitializationOptions initializationOptions =
                 PeerConnectionFactory.InitializationOptions.builder(this)
                         .setEnableInternalTracer(true)
@@ -521,8 +538,15 @@ public class CallingActivity extends AppCompatActivity {
                 })
                 .createAudioDeviceModule();
 
+        VideoEncoderFactory encoderFactory = new DefaultVideoEncoderFactory(
+                rootEglBase.getEglBaseContext(), true, true);
+        VideoDecoderFactory decoderFactory = new DefaultVideoDecoderFactory(
+                rootEglBase.getEglBaseContext());
+
         factory = PeerConnectionFactory.builder()
                 .setAudioDeviceModule(adm)
+                .setVideoEncoderFactory(encoderFactory)
+                .setVideoDecoderFactory(decoderFactory)
                 .setOptions(new PeerConnectionFactory.Options())
                 .createPeerConnectionFactory();
 
@@ -538,6 +562,23 @@ public class CallingActivity extends AppCompatActivity {
         audioSource = factory.createAudioSource(audioConstraints);
         localAudioTrack = factory.createAudioTrack("101", audioSource);
         localAudioTrack.setEnabled(true);
+
+        // Setup Local Video Track
+        try {
+            videoCapturer = createVideoCapturer();
+            if (videoCapturer != null && rootEglBase != null) {
+                surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", rootEglBase.getEglBaseContext());
+                videoSource = factory.createVideoSource(videoCapturer.isScreencast());
+                videoCapturer.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
+                videoCapturer.startCapture(1280, 720, 30);
+
+                localVideoTrack = factory.createVideoTrack("102", videoSource);
+                localVideoTrack.setEnabled(true);
+                localVideoTrack.addSink(pipVideoView);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing camera video track", e);
+        }
 
         List<PeerConnection.IceServer> iceServers = new ArrayList<>();
         // Global High-Availability STUN Servers
@@ -585,68 +626,80 @@ public class CallingActivity extends AppCompatActivity {
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
         rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
-        rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
-        rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-        rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
-        rtcConfig.iceCandidatePoolSize = 2;
 
         peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
-            @Override public void onSignalingChange(PeerConnection.SignalingState s) {}
-            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) {
-                Log.d(TAG, "ICE State: " + s.name());
-                if (s == PeerConnection.IceConnectionState.CONNECTED || s == PeerConnection.IceConnectionState.COMPLETED) {
+            @Override public void onSignalingChange(PeerConnection.SignalingState signalingState) {}
+            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+                Log.d(TAG, "ICE State: " + iceConnectionState);
+                if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
                     onCallConnected();
-                }
-            }
-            @Override
-            public void onConnectionChange(PeerConnection.PeerConnectionState newState) {
-                Log.d(TAG, "PeerConnection State: " + newState.name());
-                if (newState == PeerConnection.PeerConnectionState.CONNECTED) {
-                    onCallConnected();
+                } else if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED ||
+                           iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
+                    runOnUiThread(() -> {
+                        if (isConnected) {
+                            Toast.makeText(CallingActivity.this, "Call Disconnected", Toast.LENGTH_SHORT).show();
+                            endCallLocally();
+                        }
+                    });
                 }
             }
             @Override public void onIceConnectionReceivingChange(boolean b) {}
-            @Override public void onIceGatheringChange(PeerConnection.IceGatheringState s) {}
-            @Override public void onIceCandidate(IceCandidate iceCandidate) {
+            @Override public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {}
+            @Override
+            public void onIceCandidate(IceCandidate iceCandidate) {
                 signalingClient.sendIceCandidate(targetPhone, iceCandidate);
             }
-            @Override public void onIceCandidatesRemoved(IceCandidate[] i) {}
+            @Override public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {}
+
             @Override
-            public void onAddStream(MediaStream m) {
-                Log.d(TAG, "Remote stream added: " + (m != null ? m.getId() : "null"));
-                if (m != null && !m.audioTracks.isEmpty()) {
-                    for (AudioTrack track : m.audioTracks) {
-                        track.setEnabled(true);
-                        track.setVolume(1.0);
+            public void onAddStream(MediaStream mediaStream) {
+                Log.d(TAG, "Remote MediaStream added: " + mediaStream.getId());
+                if (!mediaStream.videoTracks.isEmpty()) {
+                    remoteVideoTrack = mediaStream.videoTracks.get(0);
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        remoteVideoTrack.addSink(fullscreenVideoView);
+                        switchToVideoMode();
+                    });
+                }
+            }
+
+            @Override
+            public void onTrack(RtpTransceiver transceiver) {
+                if (transceiver.getReceiver() != null && transceiver.getReceiver().track() != null) {
+                    MediaStreamTrack track = transceiver.getReceiver().track();
+                    if (track instanceof VideoTrack) {
+                        remoteVideoTrack = (VideoTrack) track;
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            remoteVideoTrack.addSink(fullscreenVideoView);
+                            switchToVideoMode();
+                        });
                     }
                 }
             }
-            @Override public void onRemoveStream(MediaStream m) {}
-            @Override public void onDataChannel(DataChannel d) {}
+
+            @Override public void onRemoveStream(MediaStream mediaStream) {}
+            @Override public void onDataChannel(DataChannel dataChannel) {}
             @Override public void onRenegotiationNeeded() {}
-            @Override
-            public void onAddTrack(RtpReceiver r, MediaStream[] m) {
-                Log.d(TAG, "Remote track added: " + (r != null && r.track() != null ? r.track().kind() : "null"));
-                if (r != null && r.track() instanceof AudioTrack) {
-                    AudioTrack remoteAudio = (AudioTrack) r.track();
-                    remoteAudio.setEnabled(true);
-                    remoteAudio.setVolume(1.0);
-                }
-            }
         });
 
         peerConnection.addTrack(localAudioTrack);
+        if (localVideoTrack != null) {
+            peerConnection.addTrack(localVideoTrack);
+        }
     }
 
     private void setupActions() {
         setupActionItem(findViewById(R.id.action_mute), R.drawable.ic_mic, R.string.label_mute);
         setupActionItem(findViewById(R.id.action_speaker), R.drawable.ic_speaker, R.string.label_speaker);
+        setupActionItem(findViewById(R.id.action_video), R.drawable.ic_video_call, R.string.label_video);
+        setupActionItem(findViewById(R.id.action_flip_camera), R.drawable.ic_switch_camera, R.string.label_flip_camera);
         setupActionItem(findViewById(R.id.action_ai_mode), R.drawable.ic_ai_mode, R.string.label_ai_mode);
         setupActionItem(findViewById(R.id.action_record), R.drawable.ic_record, R.string.label_record);
-        setupActionItem(findViewById(R.id.action_hold), R.drawable.ic_hold, R.string.label_hold);
-        setupActionItem(findViewById(R.id.action_keypad), R.drawable.ic_keypad, R.string.label_keypad);
     }
 
     private void setupActionItem(View container, int iconRes, int labelRes) {
@@ -660,13 +713,13 @@ public class CallingActivity extends AppCompatActivity {
             boolean isSelected = !v.isSelected();
             v.setSelected(isSelected);
 
-            // Change colors to show active/selected state
+            // Visual toggle colors
             if (isSelected) {
                 fab.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
-                fab.setImageTintList(ColorStateList.valueOf(Color.parseColor("#0F172A"))); // Dark color for contrast
+                fab.setImageTintList(ColorStateList.valueOf(Color.parseColor("#0F172A")));
                 label.setAlpha(1.0f);
             } else {
-                fab.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))); // Semi-transparent
+                fab.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")));
                 fab.setImageTintList(ColorStateList.valueOf(Color.WHITE));
                 label.setAlpha(0.8f);
             }
@@ -679,12 +732,46 @@ public class CallingActivity extends AppCompatActivity {
                 ActiveCallSession.getInstance().updateMute(isSelected);
             } else if (labelRes == R.string.label_speaker) {
                 audioManager.setSpeakerphoneOn(isSelected);
+            } else if (labelRes == R.string.label_video) {
+                toggleVideo(!isSelected);
+                fab.setImageResource(isSelected ? R.drawable.ic_video_off : R.drawable.ic_video_call);
+            } else if (labelRes == R.string.label_flip_camera) {
+                switchCamera();
             } else if (labelRes == R.string.label_ai_mode) {
                 performVoiceAiAnalysis(true);
             } else if (labelRes == R.string.label_record) {
                 toggleCallRecording(isSelected);
             }
         });
+    }
+
+    private void toggleVideo(boolean enable) {
+        isVideoEnabled = enable;
+        if (localVideoTrack != null) {
+            localVideoTrack.setEnabled(enable);
+        }
+        if (cardPipVideo != null) {
+            cardPipVideo.setVisibility(enable && isVideoCall ? View.VISIBLE : View.GONE);
+        }
+        Toast.makeText(this, enable ? "Camera On" : "Camera Paused", Toast.LENGTH_SHORT).show();
+    }
+
+    private void switchCamera() {
+        if (videoCapturer instanceof CameraVideoCapturer) {
+            CameraVideoCapturer cameraCapturer = (CameraVideoCapturer) videoCapturer;
+            cameraCapturer.switchCamera(new CameraVideoCapturer.CameraSwitchHandler() {
+                @Override
+                public void onCameraSwitchDone(boolean isFront) {
+                    isFrontCamera = isFront;
+                    runOnUiThread(() -> Toast.makeText(CallingActivity.this, isFront ? "Front Camera" : "Rear Camera", Toast.LENGTH_SHORT).show());
+                }
+
+                @Override
+                public void onCameraSwitchError(String errorDescription) {
+                    Log.e(TAG, "Camera switch error: " + errorDescription);
+                }
+            });
+        }
     }
 
     private void toggleCallRecording(boolean start) {
@@ -746,11 +833,62 @@ public class CallingActivity extends AppCompatActivity {
     }
 
     private boolean checkPermissions() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean audio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean camera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        return audio && camera;
     }
 
     private void requestPermissions() {
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_CODE);
+        ActivityCompat.requestPermissions(this, new String[]{
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.CAMERA
+        }, PERMISSION_REQUEST_CODE);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (checkPermissions()) {
+                if (isIncoming) {
+                    acceptCall();
+                } else {
+                    startCallFlow();
+                }
+            } else {
+                Toast.makeText(this, "Camera and Microphone permissions are required for calling", Toast.LENGTH_LONG).show();
+                finish();
+            }
+        }
+    }
+
+    private void startRinging() {
+        try {
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            ringtone = RingtoneManager.getRingtone(getApplicationContext(), ringtoneUri);
+            if (ringtone != null) {
+                ringtone.play();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error playing ringtone", e);
+        }
+    }
+
+    private void stopRinging() {
+        if (ringtone != null && ringtone.isPlaying()) {
+            ringtone.stop();
+        }
+    }
+
+    private void endCall() {
+        if (signalingClient != null && targetPhone != null && !targetPhone.isEmpty()) {
+            signalingClient.endCall(targetPhone);
+        }
+        endCallLocally();
+    }
+
+    private void endCallLocally() {
+        finish();
     }
 
     @Override
@@ -769,6 +907,30 @@ public class CallingActivity extends AppCompatActivity {
             signalingClient.endCall(targetPhone);
             signalingClient.destroy();
         }
+
+        // Release Video Resources
+        if (videoCapturer != null) {
+            try {
+                videoCapturer.stopCapture();
+            } catch (Exception ignored) {}
+            videoCapturer.dispose();
+            videoCapturer = null;
+        }
+        if (surfaceTextureHelper != null) {
+            surfaceTextureHelper.dispose();
+            surfaceTextureHelper = null;
+        }
+        if (pipVideoView != null) {
+            pipVideoView.release();
+        }
+        if (fullscreenVideoView != null) {
+            fullscreenVideoView.release();
+        }
+        if (rootEglBase != null) {
+            rootEglBase.release();
+            rootEglBase = null;
+        }
+
         if (peerConnection != null) peerConnection.dispose();
         if (audioSource != null) audioSource.dispose();
         if (factory != null) factory.dispose();

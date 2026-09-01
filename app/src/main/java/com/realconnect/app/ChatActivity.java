@@ -137,10 +137,22 @@ public class ChatActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
 
+        ImageButton btnVideoCall = findViewById(R.id.btn_chat_video_call);
+        if (btnVideoCall != null) {
+            btnVideoCall.setOnClickListener(v -> {
+                Intent callIntent = new Intent(ChatActivity.this, CallingActivity.class);
+                callIntent.putExtra("CONTACT_NAME", targetName);
+                callIntent.putExtra("CONTACT_PHONE", targetPhone);
+                callIntent.putExtra("IS_VIDEO_CALL", true);
+                startActivity(callIntent);
+            });
+        }
+
         btnCall.setOnClickListener(v -> {
             Intent callIntent = new Intent(ChatActivity.this, CallingActivity.class);
             callIntent.putExtra("CONTACT_NAME", targetName);
             callIntent.putExtra("CONTACT_PHONE", targetPhone);
+            callIntent.putExtra("IS_VIDEO_CALL", false);
             startActivity(callIntent);
         });
 
