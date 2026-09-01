@@ -7,10 +7,8 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
@@ -50,20 +48,12 @@ public class AuthActivity extends AppCompatActivity {
     // 13-digit base: 9100000000000L -> gives sequential 13-digit numbers (0-9)
     private static final long BASE_13_DIGIT_PHONE = 9100000000000L;
 
-    private LinearLayout layoutStepPhone;
-    private LinearLayout layoutStepOtp;
     private FrameLayout layoutLoadingOverlay;
     private TextView textLoadingStatus;
-
-    private EditText editPhone;
-    private EditText editOtp;
-    private TextView textOtpSubtitle;
 
     private FirebaseAuth mAuth;
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
-
-    private String enteredPhone = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,7 +79,7 @@ public class AuthActivity extends AppCompatActivity {
                 webClientId = getString(clientIdRes);
             }
         } catch (Exception e) {
-            Log.w(TAG, "default_web_client_id not found: " + e.getMessage());
+            Log.w(TAG, "default_web_client_id lookup failed: " + e.getMessage());
         }
 
         if (TextUtils.isEmpty(webClientId)) {
@@ -120,39 +110,16 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        layoutStepPhone = findViewById(R.id.layout_step_phone);
-        layoutStepOtp = findViewById(R.id.layout_step_otp);
         layoutLoadingOverlay = findViewById(R.id.layout_loading_overlay);
         textLoadingStatus = findViewById(R.id.text_loading_status);
-
-        editPhone = findViewById(R.id.edit_phone_input);
-        editOtp = findViewById(R.id.edit_otp_input);
-        textOtpSubtitle = findViewById(R.id.text_otp_subtitle);
     }
 
     private void setupListeners() {
         MaterialButton btnGoogleSignIn = findViewById(R.id.btn_google_sign_in);
-        MaterialButton btnInstantAccess = findViewById(R.id.btn_instant_access);
-        MaterialButton btnSendOtp = findViewById(R.id.btn_send_otp);
-        MaterialButton btnVerifyOtp = findViewById(R.id.btn_verify_otp);
-        TextView btnChangeNumber = findViewById(R.id.btn_change_number);
         ImageButton btnBack = findViewById(R.id.btn_auth_back);
 
         btnGoogleSignIn.setOnClickListener(v -> launchGoogleSignIn());
-        if (btnInstantAccess != null) {
-            btnInstantAccess.setOnClickListener(v -> handleInstantAutoAccess());
-        }
-        btnSendOtp.setOnClickListener(v -> handleSendOtp());
-        btnVerifyOtp.setOnClickListener(v -> handleVerifyOtp());
-        btnChangeNumber.setOnClickListener(v -> showPhoneStep());
-
-        btnBack.setOnClickListener(v -> {
-            if (layoutStepOtp.getVisibility() == View.VISIBLE) {
-                showPhoneStep();
-            } else {
-                finish();
-            }
-        });
+        btnBack.setOnClickListener(v -> finish());
     }
 
     private void launchGoogleSignIn() {
@@ -213,7 +180,7 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void onGoogleAuthSuccess(String name, String email, String photoUrl, String uid) {
-        showLoading("Verifying 13-digit RealConnect ID...");
+        showLoading("Assigning 13-digit RealConnect ID...");
 
         // Check if user already has an allocated 13-digit number in Firebase
         DatabaseReference userAccRef = FirebaseDatabase.getInstance().getReference("user_accounts").child(uid).child("assigned_phone");
@@ -222,7 +189,7 @@ public class AuthActivity extends AppCompatActivity {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 String existingAssignedPhone = snapshot.getValue(String.class);
                 if (existingAssignedPhone != null && !existingAssignedPhone.trim().isEmpty() && existingAssignedPhone.length() >= 10) {
-                    // Existing assigned number found
+                    // Existing assigned 13-digit number found
                     hideLoading();
                     saveProfile(existingAssignedPhone, name != null ? name : "User", email != null ? email : "", photoUrl);
                     Toast.makeText(AuthActivity.this, "Welcome " + name + "!\nCalling ID: " + existingAssignedPhone, Toast.LENGTH_LONG).show();
@@ -242,7 +209,7 @@ public class AuthActivity extends AppCompatActivity {
 
     /**
      * Atomically increments the 13-digit phone counter in Firebase Realtime Database.
-     * Guaranteed 0 collisions even across concurrent device logins.
+     * Guaranteed 0 collisions across all devices.
      */
     private void allocate13DigitPhoneAtomic(String uid, String name, String email, String photoUrl) {
         showLoading("Assigning unique 13-digit calling ID...");
@@ -293,50 +260,6 @@ public class AuthActivity extends AppCompatActivity {
                 proceedToMain();
             }
         });
-    }
-
-    private void handleInstantAutoAccess() {
-        String guestUid = "guest_" + UUID.randomUUID().toString();
-        String guestName = "Guest " + (System.currentTimeMillis() % 10000);
-        allocate13DigitPhoneAtomic(guestUid, guestName, "", null);
-    }
-
-    private void handleSendOtp() {
-        String phone = editPhone.getText().toString().trim();
-        if (TextUtils.isEmpty(phone)) {
-            Toast.makeText(this, "Please enter your phone number", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        enteredPhone = phone;
-        showOtpStep();
-    }
-
-    private void showOtpStep() {
-        layoutStepPhone.setVisibility(View.GONE);
-        layoutStepOtp.setVisibility(View.VISIBLE);
-        textOtpSubtitle.setText("Enter the verification code sent to " + enteredPhone);
-        editOtp.setText("");
-        editOtp.requestFocus();
-    }
-
-    private void showPhoneStep() {
-        layoutStepOtp.setVisibility(View.GONE);
-        layoutStepPhone.setVisibility(View.VISIBLE);
-        editPhone.requestFocus();
-    }
-
-    private void handleVerifyOtp() {
-        String otp = editOtp.getText().toString().trim();
-        if (TextUtils.isEmpty(otp)) {
-            Toast.makeText(this, "Please enter the OTP code", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String clean = ChatRepository.cleanPhone(enteredPhone);
-        saveProfile(clean, "User " + (clean.length() > 4 ? clean.substring(clean.length() - 4) : clean), "", null);
-        Toast.makeText(this, "Verified successfully!", Toast.LENGTH_SHORT).show();
-        proceedToMain();
     }
 
     private String generateDeterministic13Digit(String uid) {
