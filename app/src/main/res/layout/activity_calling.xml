@@ -40,14 +40,6 @@
         app:layout_constraintTop_toTopOf="parent" />
 
 
-    <!-- Top Glow / Shadow (Voice Mode) -->
-    <View
-        android:id="@+id/voice_bg_glow"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:background="@drawable/bg_calling_gradient"
-        android:alpha="0.5"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- DRAGGABLE LOCAL PIP VIDEO PREVIEW -->
     <com.google.android.material.card.MaterialCardView

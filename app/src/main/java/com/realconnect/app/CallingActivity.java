@@ -55,7 +55,6 @@ public class CallingActivity extends AppCompatActivity {
     private SurfaceViewRenderer pipVideoView;
     private View cardPipVideo;
     private View cardAvatar;
-    private View voiceBgGlow;
     private View voiceModeBackground;
     private View rootCallingLayout;
     private android.widget.VideoView videoViewAudioBg;
@@ -155,7 +154,6 @@ public class CallingActivity extends AppCompatActivity {
         pipVideoView = findViewById(R.id.pip_video_view);
         cardPipVideo = findViewById(R.id.card_pip_video);
         cardAvatar = findViewById(R.id.card_avatar);
-        voiceBgGlow = findViewById(R.id.voice_bg_glow);
         voiceModeBackground = findViewById(R.id.voice_mode_background);
         videoViewAudioBg = findViewById(R.id.video_view_audio_bg);
 
@@ -324,7 +322,6 @@ public class CallingActivity extends AppCompatActivity {
                 fullscreenVideoView.bringToFront();
             }
             if (cardAvatar != null) cardAvatar.setVisibility(View.GONE);
-            if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.GONE);
             if (cardPipVideo != null && isVideoEnabled) {
                 cardPipVideo.setVisibility(View.VISIBLE);
                 if (pipVideoView != null) pipVideoView.setVisibility(View.VISIBLE);
@@ -348,7 +345,6 @@ public class CallingActivity extends AppCompatActivity {
             if (cardPipVideo != null) cardPipVideo.setVisibility(View.GONE);
             if (pipVideoView != null) pipVideoView.setVisibility(View.GONE);
             if (cardAvatar != null) cardAvatar.setVisibility(View.VISIBLE);
-            if (voiceBgGlow != null) voiceBgGlow.setVisibility(View.VISIBLE);
             showControls();
         });
     }
